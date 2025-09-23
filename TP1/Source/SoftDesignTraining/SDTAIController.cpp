@@ -74,12 +74,25 @@ bool ASDTAIController::DetectWallAhead(float deltaTime) {
 		return false;
 	FVector PawnLocation = ControlledPawn->GetActorLocation();
 	FVector ForwardVector = ControlledPawn->GetActorForwardVector();
+	FVector RightVector = ControlledPawn->GetActorRightVector();
 
 	FVector StartPoint = PawnLocation;
 	FVector EndPoint = PawnLocation + (ForwardVector * WallDetectionDistance);
 
 	bool bHitDetected = SDTUtils::Raycast(GetWorld(), StartPoint, EndPoint);
 
+	FVector EndPointRight = PawnLocation + (ForwardVector * WallDetectionDistance * 0.7f) + (RightVector * 50.0f);
+	FVector EndPointLeft = PawnLocation + (ForwardVector * WallDetectionDistance * 0.7f) + (-RightVector * 50.0f);
+
+	bool bHitRight = SDTUtils::Raycast(GetWorld(), StartPoint, EndPointRight);
+	bool bHitLeft = SDTUtils::Raycast(GetWorld(), StartPoint, EndPointLeft);
+
+	if (bHitDetected && bHitRight && bHitLeft) {
+		FRotator CurrentRotation = ControlledPawn->GetActorRotation();
+		FRotator NewRotation = CurrentRotation + FRotator(0, 180.0f, 0);
+		ControlledPawn->SetActorRotation(NewRotation);
+		return false;
+	}
 	if (bHitDetected) {
 		FHitResult  HitResult;
 		FCollisionQueryParams CollisionParams;
@@ -100,7 +113,7 @@ bool ASDTAIController::DetectWallAhead(float deltaTime) {
 			bIsAvoidingWall = true;
 			return true;
 		}
-
+		return true;
 	}
 	return false;
 }
