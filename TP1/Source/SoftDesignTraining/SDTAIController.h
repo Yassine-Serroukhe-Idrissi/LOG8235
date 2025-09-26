@@ -4,51 +4,117 @@
 
 #include "CoreMinimal.h"
 #include "AIController.h"
+#include "SDTCollectible.h"
+#include "Components/AudioComponent.h"
+#include "Particles/ParticleSystemComponent.h"
 #include "SDTAIController.generated.h"
 
 /**
- * 
+ *
  */
 UCLASS(ClassGroup = AI, config = Game)
 class SOFTDESIGNTRAINING_API ASDTAIController : public AAIController
 {
     GENERATED_BODY()
+
 public:
+    ASDTAIController();
     virtual void Tick(float deltaTime) override;
+    virtual void BeginPlay() override;
 
 protected:
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI MOVEMENT")
-    float MaxSpeed = 400.0f;
+    // Question 1: Basic Movement Parameters
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+    float m_Acceleration = 300.0f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI MOVEMENT")
-    float Acceleration = 800.0f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+    float m_MaxVelocity = 600.0f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI MOVEMENT")
-    float RotationSpeed = 180.0f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+    float m_RotationSpeed = 180.0f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Wall Avoidance")
-    float WallDetectionDistance = 200.0f;
+    // Question 2: Wall Detection
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Detection")
+    float m_WallDetectionDistance = 200.0f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Wall Avoidance")
-    float AvoidanceRotationSpeed = 90.0f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Detection")
+    float m_SlowdownDistance = 150.0f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Wall Avoidance")
-    float MinSpeedWhenAvoiding = 0.2f;
+    // Question 3: Death Floor Detection
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Detection")
+    float m_DeathFloorDetectionDistance = 180.0f;
+
+    // Question 4: Pickup Detection
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Detection")
+    float m_PickupDetectionDistance = 300.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Detection")
+    float m_PickupCollectionDistance = 50.0f;
+
+    // Question 5: Pickup Collection Feedback
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback")
+    class USoundBase* m_CollectionSound;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback")
+    class UParticleSystem* m_CollectionEffect;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback")
+    float m_SoundVolume = 1.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback")
+    bool m_EnableSoundFeedback = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback")
+    bool m_EnableVisualFeedback = true;
+
+    // Question 6 & 7: Player Behavior
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player Behavior")
+    float m_PlayerDetectionDistance = 500.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player Behavior")
+    float m_PlayerPursuitSpeed = 1.2f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player Behavior")
+    float m_FleeSpeed = 1.5f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player Behavior")
+    float m_FleeDistance = 800.0f;
 
 private:
-    FVector CurrentVelocity = FVector::ZeroVector;
+    FVector m_CurrentVelocity = FVector::ZeroVector;
+    FVector m_DesiredDirection = FVector::ForwardVector;
+    AActor* m_CurrentPickupTarget = nullptr;
 
-    void CalculateVelocity(float deltaTime);
-    void ApplyMovement(float deltaTime);
-    void UpdateOrientation(float deltaTime);
+    // Player detection
+    AActor* m_DetectedPlayer = nullptr;
+    bool m_IsPlayerInRange = false;
 
-    bool bIsAvoidingWall = false;
-    FVector WallNormal = FVector::ZeroVector;
-    float CurrentSpeedMultiplier = 1.0f;
+    // Feedback components
+    UPROPERTY()
+    class UAudioComponent* m_AudioComponent;
 
-    bool DetectWallAhead(float deltaTime);
-    void AdjustSpeedForWallAvoidance(float deltaTime);
-    void PerformWallAvoidanceRotation(float deltaTime);
+    UPROPERTY()
+    class UParticleSystemComponent* m_ParticleComponent;
 
+    // Helper functions Questions 1-4
+    bool DetectWalls(FVector& AvoidanceDirection);
+    bool DetectDeathFloors(FVector& AvoidanceDirection);
+    AActor* FindNearestPickup();
+    bool IsPathClearToPickup(AActor* Pickup);
+    FVector CalculateAvoidanceDirection(FVector HitNormal);
 
+    // Question 5: Feedback functions
+    void TriggerCollectionFeedback(const FVector& CollectionLocation);
+    void PlayCollectionSound(const FVector& Location);
+    void PlayCollectionEffect(const FVector& Location);
+
+    // Question 6: Player pursuit functions
+    bool DetectPlayer();
+    bool IsPathClearToPlayer(AActor* Player);
+    FVector CalculatePursuitDirection(const FVector& PlayerLocation);
+
+    // Question 7: Flee behavior functions
+    FVector CalculateFleeDirection(const FVector& PlayerLocation);
+    bool IsPlayerTooClose();
+    FVector FindBestFleeDirection(const FVector& BaseFleeDirection);
 };
