@@ -545,8 +545,7 @@ FVector ASDTAIController::FindBestFleeDirection(const FVector& BaseFleeDirection
         // Check if there's no obstacle in this direction
         if (!SDTUtils::Raycast(GetWorld(), CurrentLocation, TestEndPoint))
         {
-            // Debug visual for chosen flee direction
-            DrawDebugLine(GetWorld(), CurrentLocation, TestEndPoint, FColor::Blue, false, 0.1f, 0, 3.0f);
+
             return FleeOption;
         }
     }
