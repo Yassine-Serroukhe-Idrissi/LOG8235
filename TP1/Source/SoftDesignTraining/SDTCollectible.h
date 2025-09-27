@@ -31,7 +31,19 @@ public:
 
     FVector initialPosition;
 
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    USoundBase* m_CollectionSound;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    UParticleSystem* m_CollectionEffect;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback")
+    float m_SoundVolume = 1.0f;
+
+
 protected:
     FTimerHandle m_CollectCooldownTimer;
-	
+private:
+
+    void TriggerCollectionFeedback();
 };

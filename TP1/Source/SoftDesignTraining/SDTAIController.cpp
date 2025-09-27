@@ -8,40 +8,11 @@
 #include "GameFramework/Pawn.h"
 #include "Kismet/GameplayStatics.h"
 #include "DrawDebugHelpers.h"
-#include "Components/AudioComponent.h"
-#include "Particles/ParticleSystemComponent.h"
-#include "Sound/SoundBase.h"
-#include "Particles/ParticleSystem.h"
 #include "Engine/Engine.h"
 
 ASDTAIController::ASDTAIController()
 {
-    // Create components in constructor
-    m_AudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("AudioComponent"));
-    m_ParticleComponent = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("ParticleComponent"));
-
-    if (m_ParticleComponent)
-    {
-        m_ParticleComponent->SetAutoActivate(false);
-    }
-}
-
-void ASDTAIController::BeginPlay()
-{
-    Super::BeginPlay();
-
-    // Attach components to pawn
-    if (m_AudioComponent && GetPawn())
-    {
-        m_AudioComponent->AttachToComponent(GetPawn()->GetRootComponent(),
-            FAttachmentTransformRules::KeepRelativeTransform);
-    }
-
-    if (m_ParticleComponent && GetPawn())
-    {
-        m_ParticleComponent->AttachToComponent(GetPawn()->GetRootComponent(),
-            FAttachmentTransformRules::KeepRelativeTransform);
-    }
+    // Constructor - no components needed since feedback is now in collectibles
 }
 
 void ASDTAIController::Tick(float deltaTime)
@@ -73,13 +44,13 @@ void ASDTAIController::Tick(float deltaTime)
         m_CurrentPickupTarget = FindNearestPickup();
     }
 
-    // Question 5: Check for pickup collection and trigger feedback
+    // Question 5: Check for pickup collection (feedback handled by collectible)
     if (m_CurrentPickupTarget)
     {
         float DistanceToPickup = FVector::Dist(CurrentLocation, m_CurrentPickupTarget->GetActorLocation());
         if (DistanceToPickup < m_PickupCollectionDistance)
         {
-            TriggerCollectionFeedback(m_CurrentPickupTarget->GetActorLocation());
+            // Collection detected - feedback will be handled by SDTCollectible
             m_CurrentPickupTarget = nullptr;
         }
     }
@@ -338,71 +309,6 @@ FVector ASDTAIController::CalculateAvoidanceDirection(FVector HitNormal)
     return AvoidanceDir;
 }
 
-// Question 5: Collection Feedback
-void ASDTAIController::TriggerCollectionFeedback(const FVector& CollectionLocation)
-{
-    if (m_EnableSoundFeedback)
-    {
-        PlayCollectionSound(CollectionLocation);
-    }
-
-    if (m_EnableVisualFeedback)
-    {
-        PlayCollectionEffect(CollectionLocation);
-    }
-
-    UE_LOG(LogTemp, Warning, TEXT("AI collected pickup at location: %s"), *CollectionLocation.ToString());
-}
-
-void ASDTAIController::PlayCollectionSound(const FVector& Location)
-{
-    if (!m_CollectionSound)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("Collection sound not set in AI Controller"));
-        return;
-    }
-
-    UGameplayStatics::PlaySoundAtLocation(
-        GetWorld(),
-        m_CollectionSound,
-        Location,
-        m_SoundVolume
-    );
-
-    if (m_AudioComponent && m_AudioComponent->IsValidLowLevel())
-    {
-        m_AudioComponent->SetSound(m_CollectionSound);
-        m_AudioComponent->SetVolumeMultiplier(m_SoundVolume);
-        m_AudioComponent->Play();
-    }
-}
-
-void ASDTAIController::PlayCollectionEffect(const FVector& Location)
-{
-    if (!m_CollectionEffect)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("Collection particle effect not set in AI Controller"));
-        return;
-    }
-
-    UGameplayStatics::SpawnEmitterAtLocation(
-        GetWorld(),
-        m_CollectionEffect,
-        Location,
-        FRotator::ZeroRotator,
-        FVector(1.0f),
-        true,
-        EPSCPoolMethod::None
-    );
-
-    if (m_ParticleComponent && m_ParticleComponent->IsValidLowLevel())
-    {
-        m_ParticleComponent->SetTemplate(m_CollectionEffect);
-        m_ParticleComponent->SetWorldLocation(Location);
-        m_ParticleComponent->Activate(true);
-    }
-}
-
 // Question 6: Player Pursuit
 bool ASDTAIController::DetectPlayer()
 {
@@ -545,7 +451,8 @@ FVector ASDTAIController::FindBestFleeDirection(const FVector& BaseFleeDirection
         // Check if there's no obstacle in this direction
         if (!SDTUtils::Raycast(GetWorld(), CurrentLocation, TestEndPoint))
         {
-
+            // Debug visual for chosen flee direction
+            DrawDebugLine(GetWorld(), CurrentLocation, TestEndPoint, FColor::Blue, false, 0.1f, 0, 3.0f);
             return FleeOption;
         }
     }

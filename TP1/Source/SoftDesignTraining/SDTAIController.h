@@ -5,8 +5,6 @@
 #include "CoreMinimal.h"
 #include "AIController.h"
 #include "SDTCollectible.h"
-#include "Components/AudioComponent.h"
-#include "Particles/ParticleSystemComponent.h"
 #include "SDTAIController.generated.h"
 
 /**
@@ -20,7 +18,6 @@ class SOFTDESIGNTRAINING_API ASDTAIController : public AAIController
 public:
     ASDTAIController();
     virtual void Tick(float deltaTime) override;
-    virtual void BeginPlay() override;
 
 protected:
     // Question 1: Basic Movement Parameters
@@ -51,22 +48,6 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Detection")
     float m_PickupCollectionDistance = 50.0f;
 
-    // Question 5: Pickup Collection Feedback
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback")
-    class USoundBase* m_CollectionSound;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback")
-    class UParticleSystem* m_CollectionEffect;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback")
-    float m_SoundVolume = 1.0f;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback")
-    bool m_EnableSoundFeedback = true;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback")
-    bool m_EnableVisualFeedback = true;
-
     // Question 6 & 7: Player Behavior
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player Behavior")
     float m_PlayerDetectionDistance = 500.0f;
@@ -89,24 +70,12 @@ private:
     AActor* m_DetectedPlayer = nullptr;
     bool m_IsPlayerInRange = false;
 
-    // Feedback components
-    UPROPERTY()
-    class UAudioComponent* m_AudioComponent;
-
-    UPROPERTY()
-    class UParticleSystemComponent* m_ParticleComponent;
-
     // Helper functions Questions 1-4
     bool DetectWalls(FVector& AvoidanceDirection);
     bool DetectDeathFloors(FVector& AvoidanceDirection);
     AActor* FindNearestPickup();
     bool IsPathClearToPickup(AActor* Pickup);
     FVector CalculateAvoidanceDirection(FVector HitNormal);
-
-    // Question 5: Feedback functions
-    void TriggerCollectionFeedback(const FVector& CollectionLocation);
-    void PlayCollectionSound(const FVector& Location);
-    void PlayCollectionEffect(const FVector& Location);
 
     // Question 6: Player pursuit functions
     bool DetectPlayer();
