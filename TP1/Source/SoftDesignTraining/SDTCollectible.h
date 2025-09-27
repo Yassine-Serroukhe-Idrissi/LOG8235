@@ -31,13 +31,13 @@ public:
 
     FVector initialPosition;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FX")
     USoundBase* m_CollectionSound;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FX")
     UParticleSystem* m_CollectionEffect;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Feedback")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "FX")
     float m_SoundVolume = 1.0f;
 
 
