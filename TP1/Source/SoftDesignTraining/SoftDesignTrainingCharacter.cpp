@@ -42,3 +42,16 @@ void ASoftDesignTrainingCharacter::OnBeginOverlap(UPrimitiveComponent* Overlappe
             SetActorLocation(m_StartingPosition);
     }
 }
+
+void ASoftDesignTrainingCharacter::OnCollectPowerUp()
+{
+    if (PickupSound)
+    {
+        UGameplayStatics::PlaySoundAtLocation(this, PickupSound, GetActorLocation());
+    }
+
+    if (PickupFX)
+    {
+        UGameplayStatics::SpawnEmitterAtLocation(this, PickupFX, GetActorLocation());
+    }
+}
