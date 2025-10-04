@@ -1,463 +1,264 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #include "SDTAIController.h"
 #include "SoftDesignTraining.h"
 #include "SDTUtils.h"
 #include "SDTCollectible.h"
-#include "Engine/World.h"
-#include "GameFramework/Pawn.h"
-#include "Kismet/GameplayStatics.h"
-#include "DrawDebugHelpers.h"
-#include "Engine/Engine.h"
-
-ASDTAIController::ASDTAIController()
-{
-    // Constructor - no components needed since feedback is now in collectibles
-}
+#include "SoftDesignTrainingMainCharacter.h"
 
 void ASDTAIController::Tick(float deltaTime)
 {
     Super::Tick(deltaTime);
 
-    APawn* ControlledPawn = GetPawn();
-    if (!ControlledPawn)
+    ChaseOrFleePlayer(deltaTime);
+    ChaseCollectible(deltaTime);
+    AvoidObstacles(deltaTime);
+    MovePawn(deltaTime);
+}
+
+void ASDTAIController::MovePawn(float deltaTime)
+{
+    APawn* pawn = GetPawn();
+    if (!pawn)
         return;
 
-    FVector CurrentLocation = ControlledPawn->GetActorLocation();
-    FVector NewDesiredDirection = m_DesiredDirection;
-    float SpeedMultiplier = 1.0f;
+    CurrentVelocity += pawn->GetActorForwardVector() * Acceleration * deltaTime;
+    CurrentVelocity = CurrentVelocity.GetClampedToMaxSize(MaxSpeed);
 
-    // Question 6 & 7: Player Detection and State Check
-    bool bPlayerDetected = DetectPlayer();
-    bool bPlayerPoweredUp = SDTUtils::IsPlayerPoweredUp(GetWorld());
-
-    // Question 2 & 3: Wall and Death Floor Detection
-    FVector WallAvoidanceDirection;
-    FVector DeathFloorAvoidanceDirection;
-
-    bool bWallDetected = DetectWalls(WallAvoidanceDirection);
-    bool bDeathFloorDetected = DetectDeathFloors(DeathFloorAvoidanceDirection);
-
-    // Question 4: Pickup Detection and Navigation
-    if (!m_CurrentPickupTarget || !IsValid(m_CurrentPickupTarget))
+    if (!CurrentVelocity.IsNearlyZero())
     {
-        m_CurrentPickupTarget = FindNearestPickup();
+        pawn->AddMovementInput(CurrentVelocity.GetSafeNormal(), CurrentVelocity.Size());
+
+        // Calcul de la rotation cible basee sur la direction de la vitesse
+        FRotator TargetRotation = CurrentVelocity.Rotation();
+        TargetRotation.Pitch = 0.f;
+        TargetRotation.Roll = 0.f;
+
+        // Interpolation entre rotation actuelle et cible
+        FRotator CurrentRotation = pawn->GetActorRotation();
+        FRotator NewRotation = FMath::RInterpTo(CurrentRotation, TargetRotation, deltaTime, RotationSpeed);
+        pawn->SetActorRotation(NewRotation);
     }
+}
 
-    // Question 5: Check for pickup collection (feedback handled by collectible)
-    if (m_CurrentPickupTarget)
+void ASDTAIController::AvoidObstacles(float deltaTime)
+{
+    APawn* pawn = GetPawn();
+    if (!pawn) return;
+
+    FVector Start = pawn->GetActorLocation();
+    FCollisionQueryParams Params;
+    Params.AddIgnoredActor(pawn);
+
+    FVector Forward = pawn->GetActorForwardVector();
+
+    TArray<float> Angles = { 0.f, 30.f, -30.f, 60.f, -60.f };
+
+    FVector Accumulated = FVector::ZeroVector;
+    float TotalWeight = 0.f;
+
+    for (float Angle : Angles)
     {
-        float DistanceToPickup = FVector::Dist(CurrentLocation, m_CurrentPickupTarget->GetActorLocation());
-        if (DistanceToPickup < m_PickupCollectionDistance)
+        FVector Direction = Forward.RotateAngleAxis(Angle, FVector::UpVector).GetSafeNormal();
+
+        // Raycast pour detecter un mur devant
+        FVector EndWall = Start + Direction * DetectionDistance;
+        FHitResult WallHit;
+        bool bWallHit = GetWorld()->LineTraceSingleByChannel(WallHit, Start, EndWall, ECC_WorldStatic, Params);
+        float WallDistance = bWallHit ? WallHit.Distance : DetectionDistance;
+
+        // Raycast vertical pour detecter si le sol est death floor
+        FVector ProbeStart = Start + Direction * DetectionDistance;
+        FVector ProbeEnd = ProbeStart + FVector::DownVector * FloorDetectionDistance;
+        FHitResult FloorHit;
+        bool bDeadly = GetWorld()->LineTraceSingleByObjectType(
+            FloorHit, ProbeStart, ProbeEnd, COLLISION_DEATH_OBJECT, Params);
+
+        if (bDeadly)
         {
-            // Collection detected - feedback will be handled by SDTCollectible
-            m_CurrentPickupTarget = nullptr;
+            // Eviter fortement les directions qui menent au death floor
+            Accumulated -= Direction * 2.f;
+            DrawDebugLine(GetWorld(), ProbeStart, ProbeEnd, FColor::Red, false, 0.f, 0, 2.f);
+            continue;
         }
+
+        // Poids ajuste selon distance disponible avant obstacle
+        float Clearance = 100.f;
+        float EffectiveDistance = FMath::Max(0.f, WallDistance - Clearance);
+        float Weight = EffectiveDistance / DetectionDistance;
+
+        Weight = FMath::Pow(Weight, 2.f);
+
+        Accumulated += Direction * Weight;
+        TotalWeight += Weight;
+
+        DrawDebugLine(GetWorld(), Start, EndWall, bWallHit ? FColor::Red : FColor::Green, false, 0.f, 0, 2.f);
+        DrawDebugLine(GetWorld(), ProbeStart, ProbeEnd, FColor::Blue, false, 0.f, 0, 2.f);
     }
 
-    // COMPLETE PRIORITY LOGIC WITH ALL QUESTIONS
-    if (bWallDetected || bDeathFloorDetected)
+    FVector BestDirection;
+    if (TotalWeight > KINDA_SMALL_NUMBER)
     {
-        // PRIORITY 1: Avoid obstacles (Questions 2 & 3)
-        if (bWallDetected && bDeathFloorDetected)
-        {
-            NewDesiredDirection = (WallAvoidanceDirection + DeathFloorAvoidanceDirection).GetSafeNormal();
-        }
-        else if (bWallDetected)
-        {
-            NewDesiredDirection = WallAvoidanceDirection;
-            SpeedMultiplier = 0.5f;
-        }
-        else
-        {
-            NewDesiredDirection = DeathFloorAvoidanceDirection;
-        }
-    }
-    else if (bPlayerDetected && bPlayerPoweredUp && m_DetectedPlayer && IsPlayerTooClose())
-    {
-        // PRIORITY 2: Flee from powered up player (Question 7)
-        FVector FleeDirection = CalculateFleeDirection(m_DetectedPlayer->GetActorLocation());
-        NewDesiredDirection = FindBestFleeDirection(FleeDirection);
-        SpeedMultiplier = m_FleeSpeed;
-
-        UE_LOG(LogTemp, Warning, TEXT("AI fleeing from player - Player is powered up!"));
-    }
-    else if (bPlayerDetected && !bPlayerPoweredUp && m_DetectedPlayer && IsPathClearToPlayer(m_DetectedPlayer))
-    {
-        // PRIORITY 3: Chase unpowered player (Question 6)
-        FVector PlayerDirection = CalculatePursuitDirection(m_DetectedPlayer->GetActorLocation());
-        NewDesiredDirection = PlayerDirection;
-        SpeedMultiplier = m_PlayerPursuitSpeed;
-
-        UE_LOG(LogTemp, Warning, TEXT("AI chasing player - Player not powered up"));
-    }
-    else if (m_CurrentPickupTarget && IsPathClearToPickup(m_CurrentPickupTarget))
-    {
-        // PRIORITY 4: Navigate to pickups (Question 4)
-        FVector PickupDirection = (m_CurrentPickupTarget->GetActorLocation() - CurrentLocation).GetSafeNormal();
-        NewDesiredDirection = PickupDirection;
+        BestDirection = (Accumulated / TotalWeight).GetSafeNormal();
     }
     else
     {
-        // PRIORITY 5: Default wandering behavior
-        if (m_DesiredDirection.IsNearlyZero() || FMath::RandRange(0.0f, 1.0f) < 0.02f)
-        {
-            NewDesiredDirection = FVector(FMath::RandRange(-1.0f, 1.0f), FMath::RandRange(-1.0f, 1.0f), 0.0f).GetSafeNormal();
-        }
-        else
-        {
-            NewDesiredDirection = m_DesiredDirection;
-        }
+        BestDirection = Forward;
     }
 
-    // Question 1: Physics-based movement with acceleration
-    FVector DesiredVelocity = NewDesiredDirection * m_MaxVelocity * SpeedMultiplier;
-    FVector VelocityChange = (DesiredVelocity - m_CurrentVelocity);
+    // Interpolation entre direction actuelle et meilleure direction
+    FVector CurrentDirection = CurrentVelocity.GetSafeNormal();
+    FVector NewDirection = FMath::VInterpTo(CurrentDirection, BestDirection, deltaTime, RotationSpeed).GetSafeNormal();
+    float Speed = CurrentVelocity.Size();
 
-    // Apply acceleration limit using semi-implicit Euler integration
-    if (VelocityChange.Size() > m_Acceleration * deltaTime)
-    {
-        VelocityChange = VelocityChange.GetSafeNormal() * m_Acceleration * deltaTime;
-    }
-
-    m_CurrentVelocity += VelocityChange;
-
-    // Clamp to maximum velocity
-    if (m_CurrentVelocity.Size() > m_MaxVelocity)
-    {
-        m_CurrentVelocity = m_CurrentVelocity.GetSafeNormal() * m_MaxVelocity;
-    }
-
-    // Add minimum velocity to prevent complete stops
-    if (m_CurrentVelocity.Size() < 50.0f && NewDesiredDirection.Size() > 0.1f)
-    {
-        m_CurrentVelocity = NewDesiredDirection * 100.0f;
-    }
-
-    // Apply movement using physics system
-    if (m_CurrentVelocity.Size() > 0.1f)
-    {
-        FVector MovementDirection = m_CurrentVelocity.GetSafeNormal();
-        float MovementSpeed = m_CurrentVelocity.Size();
-
-        // Use AddMovementInput from toolbox
-        ControlledPawn->AddMovementInput(MovementDirection, MovementSpeed / m_MaxVelocity);
-
-        // Rotate towards movement direction
-        FRotator CurrentRotation = ControlledPawn->GetActorRotation();
-        FRotator TargetRotation = MovementDirection.Rotation();
-        TargetRotation.Pitch = CurrentRotation.Pitch;
-        TargetRotation.Roll = CurrentRotation.Roll;
-
-        FRotator DeltaRotation = (TargetRotation - CurrentRotation).GetNormalized();
-        float MaxRotationThisFrame = m_RotationSpeed * deltaTime;
-
-        if (FMath::Abs(DeltaRotation.Yaw) > MaxRotationThisFrame)
-        {
-            DeltaRotation.Yaw = FMath::Sign(DeltaRotation.Yaw) * MaxRotationThisFrame;
-        }
-
-        // Use AddActorWorldRotation from toolbox
-        ControlledPawn->AddActorWorldRotation(FRotator(0, DeltaRotation.Yaw, 0));
-    }
-
-    m_DesiredDirection = NewDesiredDirection;
+    CurrentVelocity = NewDirection * Speed;
+    LastAvoidanceDirection = BestDirection;
 }
 
-// Questions 2 & 3: Wall and Death Floor Detection
-bool ASDTAIController::DetectWalls(FVector& AvoidanceDirection)
+void ASDTAIController::ChaseCollectible(float deltaTime)
 {
-    APawn* ControlledPawn = GetPawn();
-    if (!ControlledPawn)
-        return false;
+    APawn* pawn = GetPawn();
+    if (!pawn) return;
 
-    FVector CurrentLocation = ControlledPawn->GetActorLocation();
-    FVector ForwardVector = ControlledPawn->GetActorForwardVector();
-    FVector RightVector = ControlledPawn->GetActorRightVector();
+    FVector Start = pawn->GetActorLocation();
+    FVector Forward = pawn->GetActorForwardVector();
 
-    TArray<FVector> RayDirections;
-    RayDirections.Add(ForwardVector);
-    RayDirections.Add((ForwardVector + RightVector * 0.5f).GetSafeNormal());
-    RayDirections.Add((ForwardVector - RightVector * 0.5f).GetSafeNormal());
-    RayDirections.Add(RightVector);
-    RayDirections.Add(-RightVector);
+    FCollisionQueryParams Params;
+    Params.AddIgnoredActor(pawn);
 
-    FVector TotalAvoidance = FVector::ZeroVector;
-    bool bObstacleDetected = false;
+    float BestDistance = DetectionDistance;
+    FVector BestDirection = FVector::ZeroVector;
 
-    for (const FVector& Direction : RayDirections)
+    TArray<float> Angles = { 0.f, 15.f, -15.f, 30.f, -30.f, 45.f, -45.f };
+    for (float Angle : Angles)
     {
-        FVector EndPoint = CurrentLocation + Direction * m_WallDetectionDistance;
+        FVector Direction = Forward.RotateAngleAxis(Angle, FVector::UpVector).GetSafeNormal();
+        FVector End = Start + Direction * DetectionDistance;
 
-        if (SDTUtils::Raycast(GetWorld(), CurrentLocation, EndPoint))
+        // Raycast pour pickups
+        FHitResult CollectibleHit;
+        bool bCollectible = GetWorld()->LineTraceSingleByObjectType(
+            CollectibleHit, Start, End,
+            FCollisionObjectQueryParams(COLLISION_COLLECTIBLE), Params);
+
+        if (bCollectible)
         {
-            bObstacleDetected = true;
-            FVector AvoidDir = FVector::CrossProduct(Direction, FVector::UpVector).GetSafeNormal();
-            if (FVector::DotProduct(AvoidDir, RightVector) < 0)
+            // Ignore si le pickup est en cooldown
+            if (ASDTCollectible* Collectible = Cast<ASDTCollectible>(CollectibleHit.GetActor()))
             {
-                AvoidDir = -AvoidDir;
+                if (Collectible->IsOnCooldown())
+                    continue;
             }
-            TotalAvoidance += AvoidDir;
+
+            // Verifie qu'aucun mur bloque la vue
+            FHitResult WallHit;
+            bool bWall = GetWorld()->LineTraceSingleByChannel(
+                WallHit, Start, CollectibleHit.ImpactPoint, ECC_WorldStatic, Params);
+
+            if (!bWall && CollectibleHit.Distance < BestDistance)
+            {
+                BestDistance = CollectibleHit.Distance;
+                BestDirection = Direction;
+            }
+
+            DrawDebugLine(GetWorld(), Start, CollectibleHit.ImpactPoint,
+                FColor::Yellow, false, 0.f, 0, 2.f);
         }
     }
 
-    if (bObstacleDetected)
+    if (!BestDirection.IsNearlyZero())
     {
-        AvoidanceDirection = TotalAvoidance.GetSafeNormal();
-        return true;
+        CurrentVelocity = FMath::VInterpTo(
+            CurrentVelocity, BestDirection * MaxSpeed, deltaTime, RotationSpeed);
     }
-
-    return false;
 }
 
-bool ASDTAIController::DetectDeathFloors(FVector& AvoidanceDirection)
+void ASDTAIController::ChaseOrFleePlayer(float deltaTime)
 {
-    APawn* ControlledPawn = GetPawn();
-    if (!ControlledPawn)
-        return false;
+    APawn* pawn = GetPawn();
+    if (!pawn) return;
 
-    FVector CurrentLocation = ControlledPawn->GetActorLocation();
-    FVector ForwardVector = ControlledPawn->GetActorForwardVector();
+    FVector Start = pawn->GetActorLocation();
+    FCollisionQueryParams Params;
+    Params.AddIgnoredActor(pawn);
 
-    FHitResult HitResult;
-    FCollisionQueryParams QueryParams;
-    QueryParams.AddIgnoredActor(ControlledPawn);
-
-    FVector StartPoint = CurrentLocation + ForwardVector * 50.0f;
-    FVector EndPoint = StartPoint + FVector::DownVector * 200.0f;
-
-    bool bHit = GetWorld()->LineTraceSingleByObjectType(
-        HitResult,
-        StartPoint,
-        EndPoint,
-        FCollisionObjectQueryParams(COLLISION_DEATH_OBJECT),
-        QueryParams
+    FHitResult PlayerHit;
+    bool bPlayerDetected = GetWorld()->SweepSingleByObjectType(
+        PlayerHit,
+        Start,
+        Start,
+        FQuat::Identity,
+        FCollisionObjectQueryParams(COLLISION_PLAYER),
+        FCollisionShape::MakeSphere(PlayerDetectionRadius),
+        Params
     );
 
-    if (bHit)
-    {
-        FVector HitNormal = HitResult.Normal;
-        AvoidanceDirection = CalculateAvoidanceDirection(HitNormal);
-        return true;
-    }
-
-    return false;
-}
-
-// Question 4: Pickup Detection
-AActor* ASDTAIController::FindNearestPickup()
-{
-    APawn* ControlledPawn = GetPawn();
-    if (!ControlledPawn)
-        return nullptr;
-
-    FVector CurrentLocation = ControlledPawn->GetActorLocation();
-    AActor* NearestPickup = nullptr;
-    float NearestDistance = m_PickupDetectionDistance;
-
-    TArray<AActor*> FoundActors;
-    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ASDTCollectible::StaticClass(), FoundActors);
-
-    for (AActor* Actor : FoundActors)
-    {
-        if (ASDTCollectible* Collectible = Cast<ASDTCollectible>(Actor))
-        {
-            if (!Collectible->IsOnCooldown())
-            {
-                float Distance = FVector::Dist(CurrentLocation, Actor->GetActorLocation());
-                if (Distance < NearestDistance)
-                {
-                    NearestDistance = Distance;
-                    NearestPickup = Actor;
-                }
-            }
-        }
-    }
-
-    return NearestPickup;
-}
-
-bool ASDTAIController::IsPathClearToPickup(AActor* Pickup)
-{
-    if (!Pickup)
-        return false;
-
-    APawn* ControlledPawn = GetPawn();
-    if (!ControlledPawn)
-        return false;
-
-    FVector StartLocation = ControlledPawn->GetActorLocation();
-    FVector EndLocation = Pickup->GetActorLocation();
-
-    return !SDTUtils::Raycast(GetWorld(), StartLocation, EndLocation);
-}
-
-FVector ASDTAIController::CalculateAvoidanceDirection(FVector HitNormal)
-{
-    APawn* ControlledPawn = GetPawn();
-    if (!ControlledPawn)
-        return FVector::ForwardVector;
-
-    FVector RightVector = ControlledPawn->GetActorRightVector();
-    FVector AvoidanceDir = FVector::CrossProduct(HitNormal, FVector::UpVector).GetSafeNormal();
-
-    if (FVector::DotProduct(AvoidanceDir, RightVector) < 0)
-    {
-        AvoidanceDir = -AvoidanceDir;
-    }
-
-    return AvoidanceDir;
-}
-
-// Question 6: Player Pursuit
-bool ASDTAIController::DetectPlayer()
-{
-    APawn* ControlledPawn = GetPawn();
-    if (!ControlledPawn)
-        return false;
-
-    FVector CurrentLocation = ControlledPawn->GetActorLocation();
-
-    ACharacter* PlayerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
-    if (!PlayerCharacter)
-    {
-        m_DetectedPlayer = nullptr;
-        m_IsPlayerInRange = false;
-        return false;
-    }
-
-    float DistanceToPlayer = FVector::Dist(CurrentLocation, PlayerCharacter->GetActorLocation());
-
-    if (DistanceToPlayer <= m_PlayerDetectionDistance)
-    {
-        m_DetectedPlayer = PlayerCharacter;
-        m_IsPlayerInRange = true;
-
-        // Debug visuals
-        DrawDebugSphere(GetWorld(), CurrentLocation, m_PlayerDetectionDistance, 12, FColor::Red, false, 0.1f);
-        DrawDebugLine(GetWorld(), CurrentLocation, PlayerCharacter->GetActorLocation(), FColor::Yellow, false, 0.1f, 0, 2.0f);
-
-        return true;
-    }
-    else
-    {
-        m_DetectedPlayer = nullptr;
-        m_IsPlayerInRange = false;
-        return false;
-    }
-}
-
-bool ASDTAIController::IsPathClearToPlayer(AActor* Player)
-{
-    if (!Player)
-        return false;
-
-    APawn* ControlledPawn = GetPawn();
-    if (!ControlledPawn)
-        return false;
-
-    FVector StartLocation = ControlledPawn->GetActorLocation();
-    FVector EndLocation = Player->GetActorLocation();
-
-    return !SDTUtils::Raycast(GetWorld(), StartLocation, EndLocation);
-}
-
-FVector ASDTAIController::CalculatePursuitDirection(const FVector& PlayerLocation)
-{
-    APawn* ControlledPawn = GetPawn();
-    if (!ControlledPawn)
-        return FVector::ForwardVector;
-
-    FVector CurrentLocation = ControlledPawn->GetActorLocation();
-    FVector DirectionToPlayer = (PlayerLocation - CurrentLocation).GetSafeNormal();
-
-    // Basic prediction of player movement
-    if (ACharacter* PlayerCharacter = Cast<ACharacter>(m_DetectedPlayer))
-    {
-        FVector PlayerVelocity = PlayerCharacter->GetVelocity();
-        if (PlayerVelocity.Size() > 0.1f)
-        {
-            FVector PredictedPlayerLocation = PlayerLocation + PlayerVelocity * 0.5f;
-            DirectionToPlayer = (PredictedPlayerLocation - CurrentLocation).GetSafeNormal();
-        }
-    }
-
-    return DirectionToPlayer;
-}
-
-// Question 7: Flee Behavior
-FVector ASDTAIController::CalculateFleeDirection(const FVector& PlayerLocation)
-{
-    APawn* ControlledPawn = GetPawn();
-    if (!ControlledPawn)
-        return FVector::ForwardVector;
-
-    FVector CurrentLocation = ControlledPawn->GetActorLocation();
-
-    // Calculate direction AWAY from player
-    FVector FleeDirection = (CurrentLocation - PlayerLocation).GetSafeNormal();
-
-    // Add some variability to avoid oscillations
-    FVector RandomOffset = FVector(
-        FMath::RandRange(-0.3f, 0.3f),
-        FMath::RandRange(-0.3f, 0.3f),
-        0.0f
+    DrawDebugSphere(
+        GetWorld(),
+        Start,
+        PlayerDetectionRadius,
+        16,
+        bPlayerDetected ? FColor::Red : FColor::Green,
+        false,
+        0.f,
+        0,
+        2.f
     );
 
-    FleeDirection = (FleeDirection + RandomOffset).GetSafeNormal();
-
-    return FleeDirection;
-}
-
-bool ASDTAIController::IsPlayerTooClose()
-{
-    if (!m_DetectedPlayer)
-        return false;
-
-    APawn* ControlledPawn = GetPawn();
-    if (!ControlledPawn)
-        return false;
-
-    FVector CurrentLocation = ControlledPawn->GetActorLocation();
-    FVector PlayerLocation = m_DetectedPlayer->GetActorLocation();
-
-    float DistanceToPlayer = FVector::Dist(CurrentLocation, PlayerLocation);
-
-    // Player is "too close" if within detection range
-    return (DistanceToPlayer < m_PlayerDetectionDistance);
-}
-
-FVector ASDTAIController::FindBestFleeDirection(const FVector& BaseFleeDirection)
-{
-    APawn* ControlledPawn = GetPawn();
-    if (!ControlledPawn)
-        return BaseFleeDirection;
-
-    FVector CurrentLocation = ControlledPawn->GetActorLocation();
-
-    // Test multiple flee directions to find the best one
-    TArray<FVector> FleeOptions;
-    FleeOptions.Add(BaseFleeDirection); // Base direction (away from player)
-    FleeOptions.Add((BaseFleeDirection + ControlledPawn->GetActorRightVector() * 0.7f).GetSafeNormal()); // Right
-    FleeOptions.Add((BaseFleeDirection - ControlledPawn->GetActorRightVector() * 0.7f).GetSafeNormal()); // Left
-    FleeOptions.Add((BaseFleeDirection + ControlledPawn->GetActorRightVector()).GetSafeNormal()); // More right
-    FleeOptions.Add((BaseFleeDirection - ControlledPawn->GetActorRightVector()).GetSafeNormal()); // More left
-
-    // Test each option and choose first one without obstacles
-    for (const FVector& FleeOption : FleeOptions)
+    if (bPlayerDetected)
     {
-        FVector TestEndPoint = CurrentLocation + FleeOption * m_WallDetectionDistance;
-
-        // Check if there's no obstacle in this direction
-        if (!SDTUtils::Raycast(GetWorld(), CurrentLocation, TestEndPoint))
+        if (ASoftDesignTrainingMainCharacter* Player =
+            Cast<ASoftDesignTrainingMainCharacter>(PlayerHit.GetActor()))
         {
-            // Debug visual for chosen flee direction
-            DrawDebugLine(GetWorld(), CurrentLocation, TestEndPoint, FColor::Blue, false, 0.1f, 0, 3.0f);
-            return FleeOption;
+            FVector ToPlayer = (Player->GetActorLocation() - Start).GetSafeNormal();
+            FVector DesiredDirection;
+
+            if (Player->IsPoweredUp())
+            {
+                DesiredDirection = -ToPlayer;
+            }
+            else
+            {
+                DesiredDirection = ToPlayer;
+            }
+
+            // Verifie si la direction mene a un death floor
+            FVector ProbeStart = Start + DesiredDirection * DetectionDistance;
+            FVector ProbeEnd = ProbeStart + FVector::DownVector * FloorDetectionDistance;
+            FHitResult FloorHit;
+            bool bDeadly = GetWorld()->LineTraceSingleByObjectType(
+                FloorHit,
+                ProbeStart,
+                ProbeEnd,
+                COLLISION_DEATH_OBJECT,
+                Params
+            );
+
+            // Si death floor, on reutilise la derniere bonne direction
+            FVector SafeDirection = LastAvoidanceDirection.IsNearlyZero()
+                ? pawn->GetActorForwardVector()
+                : LastAvoidanceDirection;
+
+            FVector FinalDirection;
+            if (bDeadly)
+            {
+                FinalDirection = SafeDirection;
+            }
+            else
+            {
+                // Combine direction vers joueur et bonne direction
+                float DistanceToPlayer = FVector::Dist(Player->GetActorLocation(), Start);
+                float AvoidScale = FMath::Clamp(DistanceToPlayer / 500.f, 0.f, 1.f);
+                float PlayerWeight = 1.5f;
+                float AvoidWeight = 2.0f * AvoidScale;
+                FinalDirection = (DesiredDirection * PlayerWeight + SafeDirection * AvoidWeight).GetSafeNormal();
+            }
+
+            // Interpolation vers la direction finale
+            CurrentVelocity = FMath::VInterpTo(
+                CurrentVelocity,
+                FinalDirection * MaxSpeed,
+                deltaTime,
+                RotationSpeed
+            );
         }
     }
-
-    // If no direction is clear, use base direction
-    UE_LOG(LogTemp, Warning, TEXT("No clear flee direction found, using base direction"));
-    return BaseFleeDirection;
 }

@@ -13,7 +13,13 @@ public:
     ASoftDesignTrainingCharacter();
 
     virtual void BeginPlay() override;
-    virtual void OnCollectPowerUp() {};
+    virtual void OnCollectPowerUp();
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    USoundBase* PickupSound;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    UParticleSystem* PickupFX;
 
 protected:
     UFUNCTION()
@@ -21,4 +27,3 @@ protected:
 
     FVector m_StartingPosition;
 };
-
