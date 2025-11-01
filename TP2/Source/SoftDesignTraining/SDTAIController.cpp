@@ -42,6 +42,7 @@ void ASDTAIController::GoToBestTarget(float deltaTime)
                 // TODO : Agents wants to move towards actor
 
                 m_PedestrianState = PedestrianState::GO_TO_BRIDGE;
+                MoveToActor(actor);
             }
             break;
         }
@@ -73,6 +74,7 @@ void ASDTAIController::GoToBestTarget(float deltaTime)
             if (actor != nullptr)
             {
                 // TODO : Agents wants to move towards actor
+                MoveToActor(actor);
             }
             
             break;
@@ -86,6 +88,7 @@ void ASDTAIController::GoToBestTarget(float deltaTime)
             break;
         }
     }
+    ShowNavigationPath();
 }
 
 void ASDTAIController::OnMoveCompleted(FAIRequestID RequestID, const FPathFollowingResult& Result)
@@ -121,6 +124,26 @@ void ASDTAIController::ShowNavigationPath()
     // Use the UPathFollowingComponent of the AIController to get the path
     // This function is called while m_ReachedTarget is false 
     // Check void ASDTBaseAIController::Tick for how it works.
+    UPathFollowingComponent* pathComponent = GetPathFollowingComponent();
+    if (!pathComponent)
+        return;
+
+    FNavPathSharedPtr navigationPath = pathComponent->GetPath();
+    if (!navigationPath.IsValid())
+        return;
+
+    const TArray<FNavPathPoint>& points = navigationPath->GetPathPoints();
+    if (points.Num() < 2)
+        return;
+
+    for (int32 i = 0; i < points.Num() - 1; i++) {
+        const FVector startPosition = points[i].Location;
+        const FVector endPosition = points[i+1].Location;
+
+        DrawDebugLine(GetWorld(), startPosition, endPosition, FColor::Green, false, -1.f, 0, 2.f);
+        DrawDebugSphere(GetWorld(), startPosition, 10.f, 12, FColor::Blue, false, -1.f, 0, 2.f);
+        DrawDebugSphere(GetWorld(), endPosition, 10.f, 12, FColor::Red, false, -1.f, 0, 2.f);
+    }
 }
 
 void ASDTAIController::AIStateInterrupted()
