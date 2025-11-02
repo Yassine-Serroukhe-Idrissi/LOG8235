@@ -22,19 +22,35 @@ USDTPathFollowingComponent::USDTPathFollowingComponent(const FObjectInitializer&
 */
 void USDTPathFollowingComponent::FollowPathSegment(float DeltaTime)
 {
-    const TArray<FNavPathPoint>& points = Path->GetPathPoints();
-    const FNavPathPoint& segmentStart = points[MoveSegmentStartIndex];
-    const FNavPathPoint& segmentEnd = points[MoveSegmentEndIndex];
+    AController* Controller = GetOwner<AController>();
+    if (!Controller) return;
 
-    if (SDTUtils::HasJumpFlag(segmentStart))
+    APawn* Pawn = Controller->GetPawn();
+    if (!Pawn) return;
+
+    ACharacter* Character = Cast<ACharacter>(Pawn);
+    if (!Character) return;
+
+    UCharacterMovementComponent* Movement = Character->GetCharacterMovement();
+    if (!Movement) return;
+
+    const TArray<FNavPathPoint>& Points = Path->GetPathPoints();
+    const FNavPathPoint& Start = Points[MoveSegmentStartIndex];
+    const FNavPathPoint& End = Points[MoveSegmentEndIndex];
+
+    if (SDTUtils::HasJumpFlag(Start))
     {
-        // Update jump along path / nav link proxy
         jumProgress += DeltaTime;
+        UE_LOG(LogTemp, Warning, TEXT("in hasjumpflag"));
     }
     else
     {
-        // Update navigation along path (move along)
-        Super::FollowPathSegment(DeltaTime);
+        const FVector Current = Character->GetActorLocation();
+        const FVector Target = End.Location;
+
+        const float MaxSpeed = Movement->GetMaxSpeed();
+        const FVector Dir = (Target - Current).GetSafeNormal2D();
+        Movement->RequestDirectMove(Dir * MaxSpeed, false);
     }
 }
 
