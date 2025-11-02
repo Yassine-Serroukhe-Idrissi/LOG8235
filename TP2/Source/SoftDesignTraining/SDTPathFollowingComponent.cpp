@@ -38,10 +38,32 @@ void USDTPathFollowingComponent::FollowPathSegment(float DeltaTime)
     const FNavPathPoint& Start = Points[MoveSegmentStartIndex];
     const FNavPathPoint& End = Points[MoveSegmentEndIndex];
 
+    if (bPendingJumpLaunch)
+    {
+        Movement->bOrientRotationToMovement = false;
+
+        const FRotator Curr = Character->GetActorRotation();
+        const float Rate = JumpYawSpeedDegPerSec / 90.f;
+        const FRotator NewRot = FMath::RInterpTo(Curr, JumpTargetRot, DeltaTime, Rate);
+        Character->SetActorRotation(NewRot);
+
+        if (NewRot.Equals(JumpTargetRot, 0.5f))
+        {
+            isJumping = true;
+            Movement->SetMovementMode(EMovementMode::MOVE_Falling);
+            Movement->Launch(CachedLaunchSpeed);
+
+            bPendingJumpLaunch = false;
+
+            Movement->bOrientRotationToMovement = true;
+        }
+
+        return;
+    }
+
     if (SDTUtils::HasJumpFlag(Start))
     {
-        jumProgress += DeltaTime;
-        UE_LOG(LogTemp, Warning, TEXT("in hasjumpflag"));
+        jumpProgress += DeltaTime;
     }
     else
     {
@@ -72,18 +94,27 @@ void USDTPathFollowingComponent::SetMoveSegment(int32 segmentStartIndex)
 
     if (PlayerController != nullptr) {
         MovementComponent = PlayerController->GetCharacter()->GetCharacterMovement();
-        if (SDTUtils::HasJumpFlag(segmentStart) && FNavMeshNodeFlags(segmentStart.Flags).IsNavLink()) {
-            isJumping = true;
-            MovementComponent->SetMovementMode(EMovementMode::MOVE_Falling);
-            FVector NextLocation = points[MoveSegmentStartIndex + 1].Location;
-            FVector JumpDirection = (NextLocation - segmentStart.Location).GetSafeNormal();
-            FRotator JumpRotation = JumpDirection.Rotation();
-            PlayerController->GetCharacter()->SetActorRotation(JumpRotation);
-            FVector Launchspeed = FVector((NextLocation.X - segmentStart.Location.X) / 2.0f, (NextLocation.Y - segmentStart.Location.Y) / 2.0f, 1000.0f);
-            MovementComponent->Launch(Launchspeed);
-            jumProgress = 0.f;
+        if (SDTUtils::HasJumpFlag(segmentStart) && FNavMeshNodeFlags(segmentStart.Flags).IsNavLink())
+        {
+            const FVector NextLocation = points[MoveSegmentStartIndex + 1].Location;
+            const FVector JumpDir = (NextLocation - segmentStart.Location).GetSafeNormal();
+
+            const FRotator Desired = FRotationMatrix::MakeFromX(JumpDir).Rotator();
+            JumpTargetRot = FRotator(0.f, Desired.Yaw, 0.f);
+
+            CachedLaunchSpeed = FVector(
+                (NextLocation.X - segmentStart.Location.X) / 2.f,
+                (NextLocation.Y - segmentStart.Location.Y) / 2.f,
+                1000.f
+            );
+
+            bPendingJumpLaunch = true;
+            jumpProgress = 0.f;
+
+            MovementComponent->SetMovementMode(EMovementMode::MOVE_Walking);
         }
-        else {
+        else
+        {
             isJumping = false;
             MovementComponent->SetMovementMode(EMovementMode::MOVE_Walking);
         }

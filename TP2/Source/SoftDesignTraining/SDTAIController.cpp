@@ -39,8 +39,6 @@ void ASDTAIController::GoToBestTarget(float deltaTime)
             
             if (actor != nullptr)
             {
-                // TODO : Agents wants to move towards actor
-
                 m_PedestrianState = PedestrianState::GO_TO_BRIDGE;
                 MoveToActor(actor);
             }
@@ -73,7 +71,6 @@ void ASDTAIController::GoToBestTarget(float deltaTime)
             
             if (actor != nullptr)
             {
-                // TODO : Agents wants to move towards actor
                 MoveToActor(actor);
             }
             
