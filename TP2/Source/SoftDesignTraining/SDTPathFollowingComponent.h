@@ -19,7 +19,7 @@ public:
     virtual void SetMoveSegment(int32 segmentStartIndex) override;
 
     UPROPERTY(BlueprintReadOnly)
-    float jumProgress{ 0.f };
+    float jumpProgress{ 0.f };
 
     UPROPERTY(BlueprintReadOnly)
     bool isJumping{ false };

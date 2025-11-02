@@ -16,7 +16,7 @@
 ASDTAIController::ASDTAIController(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer.SetDefaultSubobjectClass<USDTPathFollowingComponent>(TEXT("PathFollowingComponent")))
 {
-           
+
 }
 
 void ASDTAIController::GoToBestTarget(float deltaTime)
@@ -32,59 +32,62 @@ void ASDTAIController::GoToBestTarget(float deltaTime)
 
     switch (m_PedestrianState)
     {
-        case PedestrianState::SPAWNED:
-        {
-            FString tag("WaitPoint_Bridge_");
-            AActor* actor = FindActorWithTag(tag);
-            
-            if (actor != nullptr)
-            {
-                // TODO : Agents wants to move towards actor
+    case PedestrianState::SPAWNED:
+    {
+        FString tag("WaitPoint_Bridge_");
+        AActor* actor = FindActorWithTag(tag);
 
-                m_PedestrianState = PedestrianState::GO_TO_BRIDGE;
-            }
-            break;
-        }
-        case PedestrianState::GO_TO_BRIDGE:
+        if (actor != nullptr)
         {
-            // Nothing to do
-            break;
+            // TODO : Agents wants to move towards actor
+            m_PedestrianState = PedestrianState::GO_TO_BRIDGE;
+            m_ReachedTarget = false;
+            MoveToActor(actor);
         }
-        case PedestrianState::WAIT_AT_BRIDGE:
-        {
-            // Check if bridge is down
-            FString tag("Bridge_");
-            AActor* actor = FindActorWithTag(tag);
-            ASDTBridge* bridge = Cast<ASDTBridge>(actor);
-            
-            // Once the bridge is down, we go through
-            if (bridge != nullptr && bridge->GetState() == EBridgeState::BRIDGE_DOWN)
-            {
-                m_PedestrianState = PedestrianState::GO_TO_DESPAWN;
-            }
+        break;
+    }
+    case PedestrianState::GO_TO_BRIDGE:
+    {
+        // Nothing to do
+        break;
+    }
+    case PedestrianState::WAIT_AT_BRIDGE:
+    {
+        // Check if bridge is down
+        FString tag("Bridge_");
+        AActor* actor = FindActorWithTag(tag);
+        ASDTBridge* bridge = Cast<ASDTBridge>(actor);
 
-            break;
-        }
-        case PedestrianState::GO_TO_DESPAWN:
+        // Once the bridge is down, we go through
+        if (bridge != nullptr && bridge->GetState() == EBridgeState::BRIDGE_DOWN)
         {
-            FString tag("Despawn_");
-            AActor* actor = FindActorWithTag(tag);
-            
-            if (actor != nullptr)
-            {
-                // TODO : Agents wants to move towards actor
-            }
-            
-            break;
+            m_PedestrianState = PedestrianState::GO_TO_DESPAWN;
         }
-        case PedestrianState::DESPAWN:
-        {
-            UnPossess();
-            Destroy();
 
-            pawn->Destroy();
-            break;
+        break;
+    }
+    case PedestrianState::GO_TO_DESPAWN:
+    {
+        FString tag("Despawn_");
+        AActor* actor = FindActorWithTag(tag);
+
+        if (actor != nullptr)
+        {
+            // TODO : Agents wants to move towards actor
+            m_ReachedTarget = false;
+            MoveToActor(actor);
         }
+
+        break;
+    }
+    case PedestrianState::DESPAWN:
+    {
+        UnPossess();
+        Destroy();
+
+        pawn->Destroy();
+        break;
+    }
     }
 }
 
@@ -102,16 +105,16 @@ void ASDTAIController::OnMoveCompleted(FAIRequestID RequestID, const FPathFollow
 
     switch (m_PedestrianState)
     {
-        case PedestrianState::GO_TO_BRIDGE:
-        {
-            m_PedestrianState = PedestrianState::WAIT_AT_BRIDGE;
-            break;
-        }
-        case PedestrianState::GO_TO_DESPAWN:
-        {
-            m_PedestrianState = PedestrianState::DESPAWN;
-            break;
-        }
+    case PedestrianState::GO_TO_BRIDGE:
+    {
+        m_PedestrianState = PedestrianState::WAIT_AT_BRIDGE;
+        break;
+    }
+    case PedestrianState::GO_TO_DESPAWN:
+    {
+        m_PedestrianState = PedestrianState::DESPAWN;
+        break;
+    }
     }
 }
 
@@ -121,6 +124,23 @@ void ASDTAIController::ShowNavigationPath()
     // Use the UPathFollowingComponent of the AIController to get the path
     // This function is called while m_ReachedTarget is false 
     // Check void ASDTBaseAIController::Tick for how it works.
+    UPathFollowingComponent* pathComponent = GetPathFollowingComponent();
+    if (!pathComponent)
+        return;
+
+    FNavPathSharedPtr navigationPath = pathComponent->GetPath();
+    if (!navigationPath.IsValid())
+        return;
+
+    const TArray<FNavPathPoint>& points = navigationPath->GetPathPoints();
+    if (points.Num() < 2)
+        return;
+
+    for (int32 i = 1; i < points.Num(); ++i)
+    {
+        DrawDebugLine(GetWorld(), points[i - 1].Location + FVector(0, 0, 10), points[i].Location + FVector(0, 0, 10), FColor::Red, false, 2.f, 0, 10.f);
+        DrawDebugSphere(GetWorld(), points[i].Location + FVector(0, 0, 10), 20.f, 4, FColor::Red, false, 10.f);
+    }
 }
 
 void ASDTAIController::AIStateInterrupted()

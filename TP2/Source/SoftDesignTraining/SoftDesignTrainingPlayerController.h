@@ -2,6 +2,7 @@
 #pragma once
 #include "GameFramework/PlayerController.h"
 #include "SDTPathFollowingComponent.h"
+#include "AI/Navigation/NavigationTypes.h"
 #include "SoftDesignTrainingPlayerController.generated.h"
 
 class ASDTBridge;
@@ -10,10 +11,10 @@ class ASDTBoatOperator;
 UCLASS()
 class ASoftDesignTrainingPlayerController : public APlayerController
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
-	ASoftDesignTrainingPlayerController();
+    ASoftDesignTrainingPlayerController();
 
     void BeginPlay() override;
 
@@ -30,6 +31,9 @@ protected:
     void Activate();
     void Deactivate();
 
+    void ClearPathDebug();
+
+    void OnPathFinished(FAIRequestID RequestID, const FPathFollowingResult& Result);
 protected:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Navigation, meta = (AllowPrivateAccess = "true"))
     USDTPathFollowingComponent* m_PathFollowingComponent;
@@ -38,6 +42,7 @@ protected:
 
     ASDTBridge* m_BridgeActivated;
     ASDTBoatOperator* m_BoatOperatorActivated;
+
+    FAIRequestID m_moveID;
+    FDelegateHandle m_delegateHandle;
 };
-
-

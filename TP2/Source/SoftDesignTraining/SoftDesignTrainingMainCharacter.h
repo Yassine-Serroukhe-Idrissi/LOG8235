@@ -7,7 +7,7 @@
 #include "SoftDesignTrainingMainCharacter.generated.h"
 
 /**
- * 
+ *
  */
 UCLASS()
 class SOFTDESIGNTRAINING_API ASoftDesignTrainingMainCharacter : public ASoftDesignTrainingCharacter
@@ -20,13 +20,16 @@ public:
     void MoveCameraRight(float value);
     void ZoomCamera(float value);
 
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+    UCurveFloat* m_JumpCurve;
+
 protected:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
-        class UCameraComponent* m_TopDownCameraComponent;
+    class UCameraComponent* m_TopDownCameraComponent;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
-        class USpringArmComponent* m_CameraBoom;
+    class USpringArmComponent* m_CameraBoom;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
     float m_CameraSpeed;
