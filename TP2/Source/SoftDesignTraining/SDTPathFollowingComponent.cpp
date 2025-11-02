@@ -52,44 +52,29 @@ void USDTPathFollowingComponent::SetMoveSegment(int32 segmentStartIndex)
 
     ASoftDesignTrainingPlayerController* PlayerController = Cast<ASoftDesignTrainingPlayerController>(GetOwner());
 
-    UCharacterMovementComponent* MovementComponent = nullptr;
+    UCharacterMovementComponent* MovementComponent;
 
-    if (PlayerController) {
+    if (PlayerController != nullptr) {
         MovementComponent = PlayerController->GetCharacter()->GetCharacterMovement();
-
-        if (SDTUtils::HasJumpFlag(segmentStart) && FNavMeshNodeFlags(segmentStart.Flags).IsNavLink())
-        {
-            // Handle starting jump
+        if (SDTUtils::HasJumpFlag(segmentStart) && FNavMeshNodeFlags(segmentStart.Flags).IsNavLink()) {
             isJumping = true;
-
             MovementComponent->SetMovementMode(EMovementMode::MOVE_Falling);
-
             FVector NextLocation = points[MoveSegmentStartIndex + 1].Location;
             FVector JumpDirection = (NextLocation - segmentStart.Location).GetSafeNormal();
             FRotator JumpRotation = JumpDirection.Rotation();
             PlayerController->GetCharacter()->SetActorRotation(JumpRotation);
-
-            FVector LaunchSpeed(
-                (NextLocation.X - segmentStart.Location.X) / 2.0f,
-                (NextLocation.Y - segmentStart.Location.Y) / 2.0f,
-                1000.0f
-            );
-            
-            MovementComponent->Launch(LaunchSpeed);
-
+            FVector Launchspeed = FVector((NextLocation.X - segmentStart.Location.X) / 2.0f, (NextLocation.Y - segmentStart.Location.Y) / 2.0f, 1000.0f);
+            MovementComponent->Launch(Launchspeed);
             jumProgress = 0.f;
         }
-        else
-        {
-            // Handle normal segments
+        else {
             isJumping = false;
             MovementComponent->SetMovementMode(EMovementMode::MOVE_Walking);
         }
     }
     else {
-        // CAS POUR AI : UNIQUEMENT MARCHER PAS DE SAUT
-        ASDTAIController* AIController = Cast<ASDTAIController>(GetOwner());
-        MovementComponent = AIController->GetCharacter()->GetCharacterMovement();
+        ASDTAIController* aiController = Cast<ASDTAIController>(GetOwner());
+        MovementComponent = aiController->GetCharacter()->GetCharacterMovement();
         isJumping = false;
         MovementComponent->SetMovementMode(EMovementMode::MOVE_Walking);
     }
