@@ -4,16 +4,17 @@
 
 #include "CoreMinimal.h"
 #include "AIController.h"
-
+#include "SDTCollectible.h"
 #include "SDTAIController.generated.h"
 
 /**
- * 
+ *
  */
 UCLASS(ClassGroup = AI, config = Game)
 class SOFTDESIGNTRAINING_API ASDTAIController : public AAIController
 {
     GENERATED_BODY()
+
 public:
     FVector CurrentVelocity;
     FVector LastAvoidanceDirection;

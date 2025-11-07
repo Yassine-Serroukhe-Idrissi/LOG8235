@@ -9,11 +9,15 @@
 #include "SDTBridge.h"
 #include "SDTBoatOperator.h"
 #include "Engine/OverlapResult.h"
+#include <NavigationSystem.h>
+#include <NavigationPath.h>
+#include "SDTUtils.h"
 
 ASoftDesignTrainingPlayerController::ASoftDesignTrainingPlayerController()
 {
     // Make a path following component
     m_PathFollowingComponent = CreateDefaultSubobject<USDTPathFollowingComponent>(TEXT("PathFollowingComponent"));
+    m_moveID = FAIRequestID::InvalidRequest;
 }
 
 void ASoftDesignTrainingPlayerController::SetupInputComponent()
@@ -49,6 +53,19 @@ void ASoftDesignTrainingPlayerController::BeginPlay()
 
     // In case we are activating a boat operator
     m_BoatOperatorActivated = nullptr;
+
+    if (m_PathFollowingComponent)
+    {
+        m_PathFollowingComponent->OnRequestFinished.AddUObject(this, &ASoftDesignTrainingPlayerController::OnPathFinished);
+    }
+}
+
+void ASoftDesignTrainingPlayerController::ClearPathDebug()
+{
+    if (UWorld* World = GetWorld())
+    {
+        FlushPersistentDebugLines(World);
+    }
 }
 
 void ASoftDesignTrainingPlayerController::MoveCameraForward(float value)
@@ -83,9 +100,55 @@ void ASoftDesignTrainingPlayerController::ZoomCamera(float axisValue)
 
 void ASoftDesignTrainingPlayerController::MoveCharacter()
 {
-    // TODO : find the position of the mouse in the world 
-    // And move the agent to this position IF possible
-    // Validate you can move through m_CanMoveCharacter
+    if (!m_CanMoveCharacter)
+        return;
+    APawn* pawn = GetPawn();
+    if (!pawn)
+        return;
+
+    FHitResult hit;
+    if (!GetHitResultUnderCursor(ECC_Visibility, true, hit))
+        return;
+
+    UNavigationSystemV1* navSystem = UNavigationSystemV1::GetCurrent(GetWorld());
+    if (!navSystem)
+        return;
+
+    FNavLocation target;
+    if (!navSystem->ProjectPointToNavigation(hit.ImpactPoint, target))
+        return;
+
+    ClearPathDebug();
+
+    if (UNavigationPath* path = navSystem->FindPathToLocationSynchronously(this, pawn->GetActorLocation(), target.Location))
+    {
+        const TArray<FVector>& points = path->PathPoints;
+        for (int32 i = 1; i < points.Num(); ++i)
+        {
+            const FVector start = points[i - 1];
+            const FVector end = points[i];
+            DrawDebugLine(GetWorld(), start + FVector(0, 0, 10), end + FVector(0, 0, 10), FColor::Green, true, -1.f, 0, 5.f);
+            DrawDebugSphere(GetWorld(), start + FVector(0, 0, 10), 10.f, 6, FColor::Blue, true);
+            DrawDebugSphere(GetWorld(), end + FVector(0, 0, 10), 10.f, 6, FColor::Red, true);
+        }
+
+        m_moveID = m_PathFollowingComponent->RequestMove(FAIMoveRequest(target), path->GetPath());
+    }
+}
+
+void ASoftDesignTrainingPlayerController::OnPathFinished(FAIRequestID RequestID, const FPathFollowingResult& Result)
+{
+    if (!m_moveID.IsValid() || RequestID != m_moveID)
+        return;
+
+    const bool reached = (Result.Code == EPathFollowingResult::Success);
+
+    if (reached)
+    {
+        ClearPathDebug();
+    }
+
+    m_moveID = FAIRequestID::InvalidRequest;
 }
 
 void ASoftDesignTrainingPlayerController::Activate()
@@ -97,8 +160,11 @@ void ASoftDesignTrainingPlayerController::Activate()
     }
 
     m_CanMoveCharacter = false;
-    // TODO : Mouvement of the agent should be stopped !!
-
+    m_PathFollowingComponent->AbortMove(
+        *this,
+        FPathFollowingResultFlags::ForcedScript | FPathFollowingResultFlags::NewRequest, FAIRequestID::CurrentRequest,
+        EPathFollowingVelocityMode::Keep
+    );
     // Make an overlap to find what is near us to activate it
     TArray<FOverlapResult> results;
     GetWorld()->OverlapMultiByChannel(results, pawn->GetActorLocation(), pawn->GetActorRotation().Quaternion(), ECollisionChannel::ECC_WorldDynamic, FCollisionShape::MakeSphere(200.f));
