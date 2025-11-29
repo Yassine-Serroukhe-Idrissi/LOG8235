@@ -4,6 +4,9 @@
 #include "SoftDesignTraining.h"
 #include "SoftDesignTrainingPlayerController.h"
 #include "SoftDesignTrainingCharacter.h"
+#include "AiAgentGroupManager.h"
+#include "Engine/World.h"
+#include "Engine/Engine.h"
 
 ASoftDesignTrainingGameMode::ASoftDesignTrainingGameMode()
 {
@@ -20,7 +23,19 @@ ASoftDesignTrainingGameMode::ASoftDesignTrainingGameMode()
 
 void ASoftDesignTrainingGameMode::StartPlay()
 {
-    Super::StartPlay();
+	Super::StartPlay();
+	AiAgentGroupManager::GetInstance()->Initialize();
+	// ASoftDesignTrainingCharacter* Player = Cast<ASoftDesignTrainingCharacter>(GetWorld()->GetFirstPlayerController()->GetPawn());
+	// if (Player)
+	//{
+	//	UE_LOG(LogTemp, Log, TEXT("Player Found"));
+	//	AiAgentGroupManager::GetInstance()->Initialize(Player); // Bind the delegate when the player is available
+	// }
+	// else
+	//{
 
-    GetWorld()->Exec(GetWorld(), TEXT("stat fps"));
+	//	UE_LOG(LogTemp, Log, TEXT("Player not Found"));
+	//}
+
+	GetWorld()->Exec(GetWorld(), TEXT("stat fps"));
 }

@@ -8,7 +8,7 @@
 #include "SDTUtils.h"
 #include "DrawDebugHelpers.h"
 #include "SDTCollectible.h"
-
+#include "AiAgentGroupManager.h"
 
 ASoftDesignTrainingCharacter::ASoftDesignTrainingCharacter()
 {
@@ -21,15 +21,25 @@ void ASoftDesignTrainingCharacter::BeginPlay()
 
     GetCapsuleComponent()->OnComponentBeginOverlap.AddDynamic(this, &ASoftDesignTrainingCharacter::OnBeginOverlap);
     m_StartingPosition = GetActorLocation();
+
+    ASDTAIController *aiController = Cast<ASDTAIController>(GetController());
+    aiController->StartBehaviorTree(this);
+
+    AiAgentGroupManager *aiAgentGroupManager = AiAgentGroupManager::GetInstance();
+    if (aiAgentGroupManager)
+    {
+        aiAgentGroupManager->RegisterAIAgent(this);
+        aiAgentGroupManager->DrawDebugIndicators(GetWorld());
+    }
 }
 
-void ASoftDesignTrainingCharacter::OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void ASoftDesignTrainingCharacter::OnBeginOverlap(UPrimitiveComponent *OverlappedComponent, AActor *OtherActor, UPrimitiveComponent *OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult &SweepResult)
 {
     if (OtherComponent->GetCollisionObjectType() == COLLISION_DEATH_OBJECT)
     {
         Die();
     }
-    else if(ASDTCollectible* collectibleActor = Cast<ASDTCollectible>(OtherActor))
+    else if (ASDTCollectible *collectibleActor = Cast<ASDTCollectible>(OtherActor))
     {
         if (!collectibleActor->IsOnCooldown())
         {
@@ -38,7 +48,7 @@ void ASoftDesignTrainingCharacter::OnBeginOverlap(UPrimitiveComponent* Overlappe
 
         collectibleActor->Collect();
     }
-    else if (ASoftDesignTrainingMainCharacter* mainCharacter = Cast<ASoftDesignTrainingMainCharacter>(OtherActor))
+    else if (ASoftDesignTrainingMainCharacter *mainCharacter = Cast<ASoftDesignTrainingMainCharacter>(OtherActor))
     {
         if (mainCharacter->IsPoweredUp())
             Die();
@@ -49,8 +59,17 @@ void ASoftDesignTrainingCharacter::Die()
 {
     SetActorLocation(m_StartingPosition);
 
-    if (ASDTAIController* controller = Cast<ASDTAIController>(GetController()))
+    if (ASDTAIController *controller = Cast<ASDTAIController>(GetController()))
     {
         controller->AIStateInterrupted();
     }
+}
+
+void ASoftDesignTrainingCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    /*AiAgentGroupManager* aiAgentGroupManager = AiAgentGroupManager::GetInstance();
+    if (aiAgentGroupManager)
+    {
+        aiAgentGroupManager->UnregisterAIAgent(this);
+    }*/
 }

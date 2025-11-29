@@ -11,8 +11,5 @@ class ASoftDesignTrainingGameMode : public AGameMode
 public:
 	ASoftDesignTrainingGameMode();
 
-    virtual void StartPlay() override;
+	virtual void StartPlay() override;
 };
-
-
-

@@ -18,17 +18,17 @@ ASoftDesignTrainingMainCharacter::ASoftDesignTrainingMainCharacter()
     m_CameraBoom->SetRelativeRotation(FRotator(-60.f, 0.f, 0.f));
     m_CameraBoom->bDoCollisionTest = false; // Don't want to pull camera in when it collides with level
 
-                                            // Create a camera...
+    // Create a camera...
     m_TopDownCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("TopDownCamera"));
     m_TopDownCameraComponent->SetupAttachment(m_CameraBoom, USpringArmComponent::SocketName);
     m_TopDownCameraComponent->bUsePawnControlRotation = false; // Camera does not rotate relative to arm;
 }
 
-void ASoftDesignTrainingMainCharacter::OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void ASoftDesignTrainingMainCharacter::OnBeginOverlap(UPrimitiveComponent *OverlappedComponent, AActor *OtherActor, UPrimitiveComponent *OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult &SweepResult)
 {
     Super::OnBeginOverlap(OverlappedComponent, OtherActor, OtherComponent, OtherBodyIndex, bFromSweep, SweepResult);
 
-    if (ASoftDesignTrainingCharacter* character = Cast<ASoftDesignTrainingCharacter>(OtherActor))
+    if (ASoftDesignTrainingCharacter *character = Cast<ASoftDesignTrainingCharacter>(OtherActor))
     {
         if (!IsPoweredUp())
             SetActorLocation(m_StartingPosition);

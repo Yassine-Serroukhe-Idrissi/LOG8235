@@ -7,23 +7,23 @@
 #include "SDTBaseAIController.generated.h"
 
 /**
- * 
+ *
  */
 UCLASS()
 class SOFTDESIGNTRAINING_API ASDTBaseAIController : public AAIController
 {
-	GENERATED_BODY()
+    GENERATED_BODY()
 
 public:
-
-    ASDTBaseAIController(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+    ASDTBaseAIController(const FObjectInitializer &ObjectInitializer = FObjectInitializer::Get());
     virtual void Tick(float deltaTime) override;
-	
+    bool m_ReachedTarget;
+    void TickRate();
+
 protected:
     virtual void RotationUpdate(float deltaTime) {};
     virtual void ImpulseToDirection(float deltaTime) {};
 
-    bool m_ReachedTarget;
 private:
     virtual void GoToBestTarget(float deltaTime) {};
     virtual void UpdatePlayerInteraction(float deltaTime) {};

@@ -2,9 +2,13 @@
 
 #include "SDTBaseAIController.h"
 #include "SoftDesignTraining.h"
+#include "AiAgentGroupManager.h"
+#include "GameFramework/PlayerController.h"
+#include "Kismet/GameplayStatics.h"
+#include "Camera/PlayerCameraManager.h"
 
-ASDTBaseAIController::ASDTBaseAIController(const FObjectInitializer& ObjectInitializer)
-    :Super(ObjectInitializer)
+ASDTBaseAIController::ASDTBaseAIController(const FObjectInitializer &ObjectInitializer)
+    : Super(ObjectInitializer)
 {
     PrimaryActorTick.bCanEverTick = true;
     PrimaryActorTick.bStartWithTickEnabled = true;
@@ -14,17 +18,36 @@ ASDTBaseAIController::ASDTBaseAIController(const FObjectInitializer& ObjectIniti
 void ASDTBaseAIController::Tick(float deltaTime)
 {
     Super::Tick(deltaTime);
+    TickRate();
+}
 
-    UpdatePlayerInteraction(deltaTime);
+void ASDTBaseAIController::TickRate()
+{
+    if (!GetPawn() || !GetWorld())
+        return;
 
-    if (m_ReachedTarget)
+    APlayerController *PlayerController = GetWorld()->GetFirstPlayerController();
+    if (!PlayerController)
     {
-        GoToBestTarget(deltaTime);
+        UE_LOG(LogTemp, Warning, TEXT("PlayerController is on vacation."));
+        return;
+    }
+
+    FVector PawnLocation = GetPawn()->GetActorLocation();
+    FVector PlayerLocation = PlayerController->GetPawn()->GetActorLocation();
+
+    float Distance = FVector::Dist(PawnLocation, PlayerLocation);
+
+    if (Distance < 5.0f)
+    {
+        SetActorTickInterval(0.1f);
+    }
+    else if (Distance < 10.0f)
+    {
+        SetActorTickInterval(0.5f);
     }
     else
     {
-        ShowNavigationPath();
+        SetActorTickInterval(2.0f);
     }
 }
-
-
