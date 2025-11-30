@@ -24,13 +24,13 @@ EBTNodeResult::Type UBTTask_MoveToPlayer::ExecuteTask(UBehaviorTreeComponent &Ow
     UE_LOG(LogTemp, Log, TEXT("Move to player"));
 
     ASoftDesignTrainingCharacter *ControlledCharacter = Cast<ASoftDesignTrainingCharacter>(AIController->GetPawn());
-    DrawDebugSphere(
-        GetWorld(),
-        ControlledCharacter->GetActorLocation() + FVector(0.f, 0.f, 20.f), // Offset to place the sphere above the character
-        10.0f,                                                             // Sphere radius
-        5,                                                                 // Sphere segments
-        FColor::Yellow, false, 1                                           // Sphere color
-    );
+    //DrawDebugSphere(
+    //    GetWorld(),
+    //    ControlledCharacter->GetActorLocation() + FVector(0.f, 0.f, 20.f), // Offset to place the sphere above the character
+    //    10.0f,                                                             // Sphere radius
+    //    5,                                                                 // Sphere segments
+    //    FColor::Yellow, false, 1                                           // Sphere color
+    //);
     aiAgentGroupManager->AssignEncirclementPositions(playerCharacter->GetActorLocation(), GetWorld());
 
     AIController->OnMoveToTarget();

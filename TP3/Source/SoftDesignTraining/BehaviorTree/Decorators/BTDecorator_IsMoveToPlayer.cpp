@@ -18,9 +18,10 @@ bool UBTDecorator_IsMoveToPlayer::CalculateRawConditionValue(UBehaviorTreeCompon
     ASDTAIController::PlayerInteractionBehavior playerBehavior = static_cast<ASDTAIController::PlayerInteractionBehavior>(OwnerComp.GetBlackboardComponent()->GetValue<UBlackboardKeyType_Enum>(AIController->GetPlayerInteractionBehaviorKeyID()));
 
     if (playerBehavior != ASDTAIController::PlayerInteractionBehavior::PlayerInteractionBehavior_Chase)
-
+    {
         aiAgentGroupManager->UnregisterAIAgent(ControlledCharacter);
-    return false;
+        return false;
+    }
 
     aiAgentGroupManager->RegisterAIAgent(ControlledCharacter);
     return true;

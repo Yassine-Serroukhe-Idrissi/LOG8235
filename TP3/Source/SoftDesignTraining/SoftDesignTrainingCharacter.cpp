@@ -67,9 +67,10 @@ void ASoftDesignTrainingCharacter::Die()
 
 void ASoftDesignTrainingCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-    /*AiAgentGroupManager* aiAgentGroupManager = AiAgentGroupManager::GetInstance();
+    AiAgentGroupManager* aiAgentGroupManager = AiAgentGroupManager::GetInstance();
     if (aiAgentGroupManager)
     {
         aiAgentGroupManager->UnregisterAIAgent(this);
-    }*/
+    }
+    Super::EndPlay(EndPlayReason);
 }

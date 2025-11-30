@@ -147,8 +147,8 @@ void AiAgentGroupManager::AssignEncirclementPositions(FVector PlayerLocation, UW
                 //);
 
                 // D�bogage : Sph�re sur la position assign�e
-                DrawDebugCircle(
-                    world,AssignedPosition,5,6, FColor::Green);
+                //DrawDebugCircle(
+                //    world,AssignedPosition,5,6, FColor::Green);
             }
         }
     }
@@ -162,7 +162,7 @@ void AiAgentGroupManager::AssignEncirclementPositions(FVector PlayerLocation, UW
         currentRadius = 0;
     }
     UE_LOG(LogTemp, Log, TEXT("After radius decrease: %.2f"), currentRadius);
-    DrawDebugIndicators(world);
+    //DrawDebugIndicators(world);
 }
 
 // M�thode pour dessiner un cercle de debug au-dessus des agents
@@ -173,13 +173,13 @@ void AiAgentGroupManager::DrawDebugIndicators(const UWorld* world)
         FVector AgentLocation = Agent->GetActorLocation();
 
         // Draw a yellow sphere above the AI agent
-        DrawDebugSphere(
-            world,
-            AgentLocation + FVector(0.f, 0.f, 15.f), // Offset to place the sphere above the character
-            20.0f,                                   // Sphere radius
-            32,                                      // Sphere segments
-            FColor::Yellow ,false,7                          // Sphere color
-        );
+        //DrawDebugSphere(
+        //    world,
+        //    AgentLocation + FVector(0.f, 0.f, 15.f), // Offset to place the sphere above the character
+        //    20.0f,                                   // Sphere radius
+        //    32,                                      // Sphere segments
+        //    FColor::Yellow ,false,7                          // Sphere color
+        //);
     }
    
 }
@@ -192,7 +192,7 @@ void AiAgentGroupManager::Destroy()
 void AiAgentGroupManager::RegisterAIAgent(ASoftDesignTrainingCharacter* aiAgent)
 {
     UE_LOG(LogTemp, Log, TEXT("Register in manager"));
-    if (m_registeredAgents.Contains(aiAgent)) {
+    if (!m_registeredAgents.Contains(aiAgent)) {
         m_registeredAgents.Add(aiAgent);
     }
 }
@@ -201,7 +201,7 @@ void AiAgentGroupManager::UnregisterAIAgent(ASoftDesignTrainingCharacter* aiAgen
 {
 
     UE_LOG(LogTemp, Log, TEXT("UnRegister in manager agent left: %d"), m_registeredAgents.Num());
-    if (!m_registeredAgents.Contains(aiAgent)) {
+    if (m_registeredAgents.Contains(aiAgent)) {
         m_registeredAgents.Remove(aiAgent);
     }
     
