@@ -54,7 +54,7 @@ void AiAgentGroupManager::AssignEncirclementPositions(FVector PlayerLocation, UW
 
     TArray<FVector> TargetPositions;
 
-    // G�n�rer les positions autour du joueur
+    // G n rer les positions autour du joueur
     float AngleStep = 360.0f / AgentCount;
     UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(world);
     float TimeSpent = 0.0f;
@@ -88,14 +88,8 @@ void AiAgentGroupManager::AssignEncirclementPositions(FVector PlayerLocation, UW
     }
 
 
-    // V�rifier qu'il y a assez de positions valides
-   /* if (TargetPositions.Num() < AgentCount)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("Pas assez de positions valides pour tous les agents !"));
-        return;
-    }*/
 
-    // Affecter chaque agent � la position la plus proche
+    // Affecter chaque agent   la position la plus proche
     TArray<bool> PositionAssigned;
     PositionAssigned.Init(false, TargetPositions.Num());
 
@@ -108,7 +102,7 @@ void AiAgentGroupManager::AssignEncirclementPositions(FVector PlayerLocation, UW
 
         FVector AgentLocation = Agent->GetActorLocation();
 
-        // Trouver la position la plus proche non assign�e
+        // Trouver la position la plus proche non assign e
         for (int i = 0; i < TargetPositions.Num(); i++)
         {
             if (!PositionAssigned[i])
@@ -122,7 +116,7 @@ void AiAgentGroupManager::AssignEncirclementPositions(FVector PlayerLocation, UW
             }
         }
 
-        // Affecter l'agent � la position trouv�e
+        // Affecter l'agent   la position trouv e
         if (ClosestIndex != -1)
         {
             FVector AssignedPosition = TargetPositions[ClosestIndex];
@@ -131,24 +125,9 @@ void AiAgentGroupManager::AssignEncirclementPositions(FVector PlayerLocation, UW
             ASDTAIController* AIController = Cast<ASDTAIController>(Agent->GetController());
             if (AIController)
             {
-                // D�placer l'agent vers la position assign�e
+                // D placer l'agent vers la position assign e
                 AIController->MoveToLocation(AssignedPosition, 0.5f, true, true, true, true, nullptr, true);
 
-                //// D�bogage : Ligne vers la position assign�e
-                //DrawDebugLine(
-                //    world,
-                //    AgentLocation,
-                //    AssignedPosition,
-                //    FColor::Blue,
-                //    false,
-                //    5.0f,
-                //    0,
-                //    2.0f
-                //);
-
-                // D�bogage : Sph�re sur la position assign�e
-                //DrawDebugCircle(
-                //    world,AssignedPosition,5,6, FColor::Green);
             }
         }
     }
@@ -162,10 +141,10 @@ void AiAgentGroupManager::AssignEncirclementPositions(FVector PlayerLocation, UW
         currentRadius = 0;
     }
     UE_LOG(LogTemp, Log, TEXT("After radius decrease: %.2f"), currentRadius);
-    //DrawDebugIndicators(world);
+    DrawDebugIndicators(world);
 }
 
-// M�thode pour dessiner un cercle de debug au-dessus des agents
+// M thode pour dessiner un cercle de debug au-dessus des agents
 void AiAgentGroupManager::DrawDebugIndicators(const UWorld* world)
 {
     for (AActor* Agent : m_registeredAgents)
@@ -173,13 +152,17 @@ void AiAgentGroupManager::DrawDebugIndicators(const UWorld* world)
         FVector AgentLocation = Agent->GetActorLocation();
 
         // Draw a yellow sphere above the AI agent
-        //DrawDebugSphere(
-        //    world,
-        //    AgentLocation + FVector(0.f, 0.f, 15.f), // Offset to place the sphere above the character
-        //    20.0f,                                   // Sphere radius
-        //    32,                                      // Sphere segments
-        //    FColor::Yellow ,false,7                          // Sphere color
-        //);
+        DrawDebugSphere(
+            world,
+            AgentLocation + FVector(0.f, 0.f, 100.f),
+            30.0f,
+            12,
+            FColor::Yellow,
+            false,           // persistent lines = false
+            0.1f,            // LifeTime = 0.1 secondes (au lieu de -1 ou 7)
+            0,               // depth priority
+            2.0f             // thickness
+        );
     }
    
 }
