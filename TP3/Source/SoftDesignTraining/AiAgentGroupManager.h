@@ -18,7 +18,6 @@ public:
 
     void RegisterAIAgent(ASoftDesignTrainingCharacter* aiAgent);
     void UnregisterAIAgent(ASoftDesignTrainingCharacter* aiAgent);
-    void DrawDebugIndicators(const UWorld* world);
     void AssignEncirclementPositions(FVector PlayerLocation, UWorld* world);
     TargetLKPInfo GetLKPFromGroup(const FString& targetLabel, bool& targetFound);
     void Initialize(/*ASoftDesignTrainingCharacter* Player*/);

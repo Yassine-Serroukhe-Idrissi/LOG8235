@@ -141,31 +141,8 @@ void AiAgentGroupManager::AssignEncirclementPositions(FVector PlayerLocation, UW
         currentRadius = 0;
     }
     UE_LOG(LogTemp, Log, TEXT("After radius decrease: %.2f"), currentRadius);
-    DrawDebugIndicators(world);
 }
 
-// M thode pour dessiner un cercle de debug au-dessus des agents
-void AiAgentGroupManager::DrawDebugIndicators(const UWorld* world)
-{
-    for (AActor* Agent : m_registeredAgents)
-    {
-        FVector AgentLocation = Agent->GetActorLocation();
-
-        // Draw a yellow sphere above the AI agent
-        DrawDebugSphere(
-            world,
-            AgentLocation + FVector(0.f, 0.f, 100.f),
-            30.0f,
-            12,
-            FColor::Yellow,
-            false,           // persistent lines = false
-            0.1f,            // LifeTime = 0.1 secondes (au lieu de -1 ou 7)
-            0,               // depth priority
-            2.0f             // thickness
-        );
-    }
-   
-}
 void AiAgentGroupManager::Destroy()
 {
     delete m_Instance;
@@ -177,6 +154,7 @@ void AiAgentGroupManager::RegisterAIAgent(ASoftDesignTrainingCharacter* aiAgent)
     UE_LOG(LogTemp, Log, TEXT("Register in manager"));
     if (!m_registeredAgents.Contains(aiAgent)) {
         m_registeredAgents.Add(aiAgent);
+        aiAgent->SetIsInChaseGroup(true);
     }
 }
 
@@ -186,8 +164,8 @@ void AiAgentGroupManager::UnregisterAIAgent(ASoftDesignTrainingCharacter* aiAgen
     UE_LOG(LogTemp, Log, TEXT("UnRegister in manager agent left: %d"), m_registeredAgents.Num());
     if (m_registeredAgents.Contains(aiAgent)) {
         m_registeredAgents.Remove(aiAgent);
+        aiAgent->SetIsInChaseGroup(false);
     }
-    
 }
 
 TargetLKPInfo AiAgentGroupManager::GetLKPFromGroup(const FString& targetLabel, bool& targetfound)

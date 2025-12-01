@@ -13,6 +13,13 @@
 ASoftDesignTrainingCharacter::ASoftDesignTrainingCharacter()
 {
     GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
+
+    ChaseGroupIndicator = CreateDefaultSubobject<USphereComponent>(TEXT("ChaseGroupIndicator"));
+    ChaseGroupIndicator->SetupAttachment(RootComponent);
+    ChaseGroupIndicator->SetRelativeLocation(FVector(0.f, 0.f, 120.f));
+    ChaseGroupIndicator->InitSphereRadius(10.f);
+    ChaseGroupIndicator->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    ChaseGroupIndicator->SetHiddenInGame(true);
 }
 
 void ASoftDesignTrainingCharacter::BeginPlay()
@@ -26,10 +33,6 @@ void ASoftDesignTrainingCharacter::BeginPlay()
     aiController->StartBehaviorTree(this);
 
     AiAgentGroupManager *aiAgentGroupManager = AiAgentGroupManager::GetInstance();
-    if (aiAgentGroupManager)
-    {
-        aiAgentGroupManager->DrawDebugIndicators(GetWorld());
-    }
 }
 
 void ASoftDesignTrainingCharacter::OnBeginOverlap(UPrimitiveComponent *OverlappedComponent, AActor *OtherActor, UPrimitiveComponent *OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult &SweepResult)
@@ -72,4 +75,10 @@ void ASoftDesignTrainingCharacter::EndPlay(const EEndPlayReason::Type EndPlayRea
         aiAgentGroupManager->UnregisterAIAgent(this);
     }
     Super::EndPlay(EndPlayReason);
+}
+
+void ASoftDesignTrainingCharacter::SetIsInChaseGroup(bool bInGroup)
+{
+    bIsInChaseGroup = bInGroup;
+    ChaseGroupIndicator->SetHiddenInGame(!bInGroup);
 }

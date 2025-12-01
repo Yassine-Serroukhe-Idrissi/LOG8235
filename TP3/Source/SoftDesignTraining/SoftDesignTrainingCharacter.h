@@ -18,6 +18,7 @@ public:
 
     UBehaviorTree *GetBehaviorTree() const { return m_aiBehaviorTree; }
 
+    void SetIsInChaseGroup(bool bInGroup);
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason);
     virtual void OnCollectPowerUp() {};
@@ -34,4 +35,8 @@ protected:
     UBehaviorTree *m_aiBehaviorTree;
 
     FVector m_StartingPosition;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+    class USphereComponent* ChaseGroupIndicator;
+    bool bIsInChaseGroup = false;
 };
