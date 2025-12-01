@@ -20,12 +20,11 @@ public:
     void UnregisterAIAgent(ASoftDesignTrainingCharacter* aiAgent);
     void AssignEncirclementPositions(FVector PlayerLocation, UWorld* world);
     TargetLKPInfo GetLKPFromGroup(const FString& targetLabel, bool& targetFound);
-    void Initialize(/*ASoftDesignTrainingCharacter* Player*/);
+    void Initialize();
    
 
 private:
 
-    //SINGLETON
     AiAgentGroupManager();
     static AiAgentGroupManager* m_Instance;
     float EncirclementRadius = 1000;

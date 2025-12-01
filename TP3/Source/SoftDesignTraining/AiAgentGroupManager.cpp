@@ -13,24 +13,14 @@ AiAgentGroupManager* AiAgentGroupManager::m_Instance;
 AiAgentGroupManager::AiAgentGroupManager()
 {
 }
-void AiAgentGroupManager::Initialize(/*ASoftDesignTrainingCharacter* Player*/)
+void AiAgentGroupManager::Initialize()
 {
-    EncirclementRadius = 400;
+    EncirclementRadius = 800;
     currentRadius = EncirclementRadius;
-    rateOfDecrease = 10;
+    rateOfDecrease = 20;
     currentIteration = 0;
     iterationBeforeReseting = EncirclementRadius / rateOfDecrease + (EncirclementRadius / rateOfDecrease) * 0.5;
-    //Tentative d'utiliser des event pour reset le radius lorsque le main perso meurt mais en vain
-   /* if (Player)
-    {
-
-        UE_LOG(LogTemp, Log, TEXT("Player Initialized"));
-        Player->OnPlayerDeath.AddLambda([this]()
-            {
-                currentRadius = EncirclementRadius;
-                UE_LOG(LogTemp, Log, TEXT("Player died. Resetting radius."));
-            });
-    }*/
+    
 }
 
 AiAgentGroupManager* AiAgentGroupManager::GetInstance()
@@ -50,11 +40,11 @@ void AiAgentGroupManager::AssignEncirclementPositions(FVector PlayerLocation, UW
     int AgentCount = m_registeredAgents.Num();
     UE_LOG(LogTemp, Log, TEXT("Number Registerd: %d"), AgentCount);
 
-    //if (AgentCount == 0) return;
+    if (AgentCount == 0) return;
 
     TArray<FVector> TargetPositions;
 
-    // G n rer les positions autour du joueur
+    
     float AngleStep = 360.0f / AgentCount;
     UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(world);
     float TimeSpent = 0.0f;
@@ -70,26 +60,21 @@ void AiAgentGroupManager::AssignEncirclementPositions(FVector PlayerLocation, UW
         FVector Offset = FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0) * currentRadius;
         FVector CandidatePosition = PlayerLocation + Offset;
 
-        // Check if the position is navigable
         FNavLocation NavLocation;
         bool IsNavigable = NavSys && NavSys->ProjectPointToNavigation(CandidatePosition, NavLocation);
 
         if (IsNavigable)
         {
-            TargetPositions.Add(NavLocation.Location); //encercle
+            TargetPositions.Add(NavLocation.Location); 
         }
-        else
-        {
-            TargetPositions.Add(PlayerLocation); //sinon fonce sur le joueur
-    
-        }
+        
         float UpdateTime = FPlatformTime::Seconds() - StartTime;
         TimeSpent += UpdateTime;    
     }
 
 
 
-    // Affecter chaque agent   la position la plus proche
+    
     TArray<bool> PositionAssigned;
     PositionAssigned.Init(false, TargetPositions.Num());
 
@@ -102,7 +87,7 @@ void AiAgentGroupManager::AssignEncirclementPositions(FVector PlayerLocation, UW
 
         FVector AgentLocation = Agent->GetActorLocation();
 
-        // Trouver la position la plus proche non assign e
+        
         for (int i = 0; i < TargetPositions.Num(); i++)
         {
             if (!PositionAssigned[i])
@@ -116,7 +101,7 @@ void AiAgentGroupManager::AssignEncirclementPositions(FVector PlayerLocation, UW
             }
         }
 
-        // Affecter l'agent   la position trouv e
+        
         if (ClosestIndex != -1)
         {
             FVector AssignedPosition = TargetPositions[ClosestIndex];
@@ -125,7 +110,7 @@ void AiAgentGroupManager::AssignEncirclementPositions(FVector PlayerLocation, UW
             ASDTAIController* AIController = Cast<ASDTAIController>(Agent->GetController());
             if (AIController)
             {
-                // D placer l'agent vers la position assign e
+                
                 AIController->MoveToLocation(AssignedPosition, 0.5f, true, true, true, true, nullptr, true);
 
             }

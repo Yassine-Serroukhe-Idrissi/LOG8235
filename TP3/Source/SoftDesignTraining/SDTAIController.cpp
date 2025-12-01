@@ -8,7 +8,6 @@
 #include "SDTPathFollowingComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Kismet/KismetMathLibrary.h"
-// #include "UnrealMathUtility.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Bool.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Enum.h"
@@ -64,7 +63,7 @@ void ASDTAIController::OnPossess(APawn *pawn)
             m_playerInteractionBehaviorKeyID = m_blackboardComponent->GetKeyID("PlayerInteractionBehavior");
             m_shouldExecuteServiceKeyID = m_blackboardComponent->GetKeyID("ShouldExecuteService");
 
-            // Set this agent in the BT
+            
             m_blackboardComponent->SetValue<UBlackboardKeyType_Object>(m_blackboardComponent->GetKeyID("SelfActor"), pawn);
 
             m_blackboardComponent->SetValue<UBlackboardKeyType_Bool>(m_blackboardComponent->GetKeyID("TargetReached"), true);
@@ -73,8 +72,7 @@ void ASDTAIController::OnPossess(APawn *pawn)
             m_blackboardComponent->SetValue<UBlackboardKeyType_Enum>(m_blackboardComponent->GetKeyID("PlayerInteractionBehavior"), static_cast<uint8>(PlayerInteractionBehavior::PlayerInteractionBehavior_Collect));
             m_blackboardComponent->SetValue<UBlackboardKeyType_Bool>(GetShouldExecuteServiceKeyID(), true);
 
-            /*m_blackboardComponent->SetValue<UBlackboardKeyType_Object>(m_blackboardComponent->GetKeyID("Player"), playerCharacter);*/
-        }
+            }
     }
 }
 
@@ -107,7 +105,7 @@ void ASDTAIController::PlayerInteractionLoSUpdate()
         {
             GetWorld()->GetTimerManager().ClearTimer(m_PlayerInteractionNoLosTimer);
             m_PlayerInteractionNoLosTimer.Invalidate();
-            // DrawDebugString(GetWorld(), FVector(0.f, 0.f, 10.f), "Got LoS", GetPawn(), FColor::Red, 5.f, false);
+            
         }
     }
     else
@@ -115,20 +113,19 @@ void ASDTAIController::PlayerInteractionLoSUpdate()
         if (!GetWorld()->GetTimerManager().IsTimerActive(m_PlayerInteractionNoLosTimer))
         {
             GetWorld()->GetTimerManager().SetTimer(m_PlayerInteractionNoLosTimer, this, &ASDTAIController::OnPlayerInteractionNoLosDone, 3.f, false);
-            // DrawDebugString(GetWorld(), FVector(0.f, 0.f, 10.f), "Lost LoS", GetPawn(), FColor::Red, 5.f, false);
-        }
+            }
     }
 }
 
 void ASDTAIController::OnPlayerInteractionNoLosDone()
 {
     GetWorld()->GetTimerManager().ClearTimer(m_PlayerInteractionNoLosTimer);
-    // DrawDebugString(GetWorld(), FVector(0.f, 0.f, 10.f), "TIMER DONE", GetPawn(), FColor::Red, 5.f, false);
+    
 
     if (!AtJumpSegment)
     {
         AIStateInterrupted();
-        // m_PlayerInteractionBehavior = PlayerInteractionBehavior_Collect;
+        
         m_blackboardComponent->SetValue<UBlackboardKeyType_Enum>(GetPlayerInteractionBehaviorKeyID(), PlayerInteractionBehavior_Collect);
     }
 }
@@ -161,7 +158,7 @@ void ASDTAIController::OnMoveCompleted(FAIRequestID RequestID, const FPathFollow
 {
     Super::OnMoveCompleted(RequestID, Result);
 
-    // m_ReachedTarget = true;
+    
     m_blackboardComponent->SetValue<UBlackboardKeyType_Bool>(GetTargetReachedKeyID(), true);
 }
 
@@ -176,11 +173,11 @@ void ASDTAIController::ShowNavigationPath()
 
             for (int i = 0; i < pathPoints.Num(); ++i)
             {
-                // DrawDebugSphere(GetWorld(), pathPoints[i].Location, 10.f, 8, FColor::Yellow);
+                
 
                 if (i != 0)
                 {
-                    // DrawDebugLine(GetWorld(), pathPoints[i].Location, pathPoints[i - 1].Location, FColor::Yellow);
+                    
                 }
             }
         }
@@ -189,7 +186,7 @@ void ASDTAIController::ShowNavigationPath()
 
 void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
 {
-    // finish jump before updating AI state
+    
     if (AtJumpSegment)
         return;
 
@@ -237,11 +234,10 @@ void ASDTAIController::UpdatePlayerInteraction(float deltaTime)
         debugString = "InvestigateLKP";
         break;
     }
-    // AiAgentGroupManager::GetInstance()->DrawDebugIndicators(GetWorld());
+    
 
      DrawDebugString(GetWorld(), FVector(0.f, 0.f, 5.f), debugString, GetPawn(), FColor::Orange, 0.f, false);
 
-    // DrawDebugCapsule(GetWorld(), detectionStartLocation + m_DetectionCapsuleHalfLength * selfPawn->GetActorForwardVector(), m_DetectionCapsuleHalfLength, m_DetectionCapsuleRadius, selfPawn->GetActorQuat() * selfPawn->GetActorUpVector().ToOrientationQuat(), FColor::Blue);
 }
 
 bool ASDTAIController::HasLoSOnHit(const FHitResult &hit)
@@ -267,7 +263,7 @@ bool ASDTAIController::HasLoSOnHit(const FHitResult &hit)
 void ASDTAIController::AIStateInterrupted()
 {
     StopMovement();
-    // m_ReachedTarget = true;
+    
     m_blackboardComponent->SetValue<UBlackboardKeyType_Bool>(GetTargetReachedKeyID(), true);
 }
 
