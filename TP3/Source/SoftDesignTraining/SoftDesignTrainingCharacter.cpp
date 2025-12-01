@@ -28,7 +28,6 @@ void ASoftDesignTrainingCharacter::BeginPlay()
     AiAgentGroupManager *aiAgentGroupManager = AiAgentGroupManager::GetInstance();
     if (aiAgentGroupManager)
     {
-        aiAgentGroupManager->RegisterAIAgent(this);
         aiAgentGroupManager->DrawDebugIndicators(GetWorld());
     }
 }

@@ -78,78 +78,6 @@ void ASDTAIController::OnPossess(APawn *pawn)
     }
 }
 
-void ASDTAIController::GoToBestTarget(float deltaTime)
-{
-    ASoftDesignTrainingCharacter *ControlledCharacter = Cast<ASoftDesignTrainingCharacter>(GetPawn());
-    switch (m_PlayerInteractionBehavior)
-    {
-    case PlayerInteractionBehavior_Collect:
-
-        UE_LOG(LogTemp, Log, TEXT("Unregistered"));
-        AiAgentGroupManager::GetInstance()->UnregisterAIAgent(ControlledCharacter);
-        MoveToRandomCollectible();
-
-        break;
-
-    case PlayerInteractionBehavior_Chase:
-
-        UE_LOG(LogTemp, Log, TEXT("Registered"));
-        AiAgentGroupManager::GetInstance()->RegisterAIAgent(ControlledCharacter);
-        // AiAgentGroupManager::GetInstance()->DrawDebugIndicators(GetWorld());
-        MoveToPlayer();
-
-        break;
-
-    case PlayerInteractionBehavior_Flee:
-
-        UE_LOG(LogTemp, Log, TEXT("Unregistered"));
-        AiAgentGroupManager::GetInstance()->UnregisterAIAgent(ControlledCharacter);
-        MoveToBestFleeLocation();
-
-        break;
-    }
-}
-
-void ASDTAIController::MoveToRandomCollectible()
-{
-    float closestSqrCollectibleDistance = 18446744073709551610.f;
-    ASDTCollectible *closestCollectible = nullptr;
-
-    TArray<AActor *> foundCollectibles;
-    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ASDTCollectible::StaticClass(), foundCollectibles);
-
-    while (foundCollectibles.Num() != 0)
-    {
-        int index = FMath::RandRange(0, foundCollectibles.Num() - 1);
-
-        ASDTCollectible *collectibleActor = Cast<ASDTCollectible>(foundCollectibles[index]);
-        if (!collectibleActor)
-            return;
-
-        if (!collectibleActor->IsOnCooldown())
-        {
-            MoveToLocation(foundCollectibles[index]->GetActorLocation(), 0.5f, false, true, true, false, NULL, false);
-            OnMoveToTarget();
-            return;
-        }
-        else
-        {
-            foundCollectibles.RemoveAt(index);
-        }
-    }
-}
-
-void ASDTAIController::MoveToPlayer()
-{
-    ACharacter *playerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
-    if (!playerCharacter)
-        return;
-
-    // MoveToActor(playerCharacter, 0.5f, false, true, true, NULL, false);
-    // OnMoveToTarget();
-    // AiAgentGroupManager::GetInstance()->AssignEncirclementPositions(playerCharacter->GetActorLocation(),GetWorld());
-}
-
 void ASDTAIController::PlayerInteractionLoSUpdate()
 {
     ACharacter *playerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
@@ -202,48 +130,6 @@ void ASDTAIController::OnPlayerInteractionNoLosDone()
         AIStateInterrupted();
         // m_PlayerInteractionBehavior = PlayerInteractionBehavior_Collect;
         m_blackboardComponent->SetValue<UBlackboardKeyType_Enum>(GetPlayerInteractionBehaviorKeyID(), PlayerInteractionBehavior_Collect);
-    }
-}
-
-void ASDTAIController::MoveToBestFleeLocation()
-{
-    float bestLocationScore = 0.f;
-    ASDTFleeLocation *bestFleeLocation = nullptr;
-
-    ACharacter *playerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
-    if (!playerCharacter)
-        return;
-
-    for (TActorIterator<ASDTFleeLocation> actorIterator(GetWorld(), ASDTFleeLocation::StaticClass()); actorIterator; ++actorIterator)
-    {
-        ASDTFleeLocation *fleeLocation = Cast<ASDTFleeLocation>(*actorIterator);
-        if (fleeLocation)
-        {
-            float distToFleeLocation = FVector::Dist(fleeLocation->GetActorLocation(), playerCharacter->GetActorLocation());
-
-            FVector selfToPlayer = playerCharacter->GetActorLocation() - GetPawn()->GetActorLocation();
-            selfToPlayer.Normalize();
-
-            FVector selfToFleeLocation = fleeLocation->GetActorLocation() - GetPawn()->GetActorLocation();
-            selfToFleeLocation.Normalize();
-
-            float fleeLocationToPlayerAngle = FMath::RadiansToDegrees(acosf(FVector::DotProduct(selfToPlayer, selfToFleeLocation)));
-            float locationScore = distToFleeLocation + fleeLocationToPlayerAngle * 100.f;
-
-            if (locationScore > bestLocationScore)
-            {
-                bestLocationScore = locationScore;
-                bestFleeLocation = fleeLocation;
-            }
-
-            // DrawDebugString(GetWorld(), FVector(0.f, 0.f, 10.f), FString::SanitizeFloat(locationScore), fleeLocation, FColor::Red, 5.f, false);
-        }
-    }
-
-    if (bestFleeLocation)
-    {
-        MoveToLocation(bestFleeLocation->GetActorLocation(), 0.5f, false, true, false, false, NULL, false);
-        OnMoveToTarget();
     }
 }
 
@@ -385,149 +271,46 @@ void ASDTAIController::AIStateInterrupted()
     m_blackboardComponent->SetValue<UBlackboardKeyType_Bool>(GetTargetReachedKeyID(), true);
 }
 
-ASDTAIController::PlayerInteractionBehavior ASDTAIController::GetCurrentPlayerInteractionBehavior(const FHitResult &hit)
+ASDTAIController::PlayerInteractionBehavior ASDTAIController::GetCurrentPlayerInteractionBehavior(const FHitResult& hit)
 {
-    float currentElapsedTime = UGameplayStatics::GetRealTimeSeconds(GetWorld());
+    ACharacter* player = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+    ASoftDesignTrainingCharacter* character = Cast<ASoftDesignTrainingCharacter>(GetPawn());
 
-    APawn *selfPawn = GetPawn();
-    ASoftDesignTrainingCharacter *character = Cast<ASoftDesignTrainingCharacter>(selfPawn);
+    if (!player || !character)
+        return PlayerInteractionBehavior_Collect;
 
-    ACharacter *playerCharacter = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+    bool playerDetected = hit.GetComponent() &&
+        hit.GetComponent()->GetCollisionObjectType() == COLLISION_PLAYER;
 
-    PlayerInteractionBehavior playerInteractionBehavior = static_cast<PlayerInteractionBehavior>(m_blackboardComponent->GetValue<UBlackboardKeyType_Enum>(GetPlayerInteractionBehaviorKeyID()));
+    bool hasLoS = playerDetected && HasLoSOnHit(hit);
 
-    FVector lkpPos_1 = character->m_currentTargetLkpInfo.GetLKPPos();
+    PlayerInteractionBehavior current =
+        (PlayerInteractionBehavior)m_blackboardComponent->GetValue<UBlackboardKeyType_Enum>(
+            GetPlayerInteractionBehaviorKeyID()
+        );
 
-    // TODO: make a service to show that
-    /*DrawDebugSphere(GetWorld(), lkpPos_1, 30.0f, 32, FColor::Purple);
-    DrawDebugSphere(GetWorld(), character->GetActorLocation() + FVector(0.f, 0.f, 100.f), 15.0f, 32, FColor::Purple);*/
-    if (playerInteractionBehavior == PlayerInteractionBehavior_Collect)
+    if (current == PlayerInteractionBehavior_Chase && !hasLoS)
     {
-        // Check if group knows where player might be
-        bool targetFoundByGroup = false;
-        TargetLKPInfo targetInfoFromGroup = AiAgentGroupManager::GetInstance()->GetLKPFromGroup(playerCharacter->GetActorLabel(), targetFoundByGroup);
-        // Check if group knows where player might be  [Exer on LKP sharing week 11]
-        if (targetFoundByGroup)
-        {
-            character->m_currentTargetLkpInfo = targetInfoFromGroup;
-            return PlayerInteractionBehavior_InvestigateLKP;
-        }
-
-        if (!hit.GetComponent())
-            return PlayerInteractionBehavior_Collect;
-
-        if (hit.GetComponent()->GetCollisionObjectType() != COLLISION_PLAYER)
-            return PlayerInteractionBehavior_Collect;
-
-        if (!HasLoSOnHit(hit))
-            return PlayerInteractionBehavior_Collect;
-
-        character->m_currentTargetLkpInfo.SetLKPPos(playerCharacter->GetActorLocation());
-        character->m_currentTargetLkpInfo.SetLKPState(TargetLKPInfo::ELKPState::LKPState_ValidByLOS);
-        character->m_currentTargetLkpInfo.SetTargetLabel(playerCharacter->GetActorLabel());
-        character->m_currentTargetLkpInfo.SetLastUpdatedTimeStamp(currentElapsedTime);
-        return SDTUtils::IsPlayerPoweredUp(GetWorld()) ? PlayerInteractionBehavior_Flee : PlayerInteractionBehavior_Chase;
+        return PlayerInteractionBehavior_Chase;
     }
-    else if (playerInteractionBehavior == PlayerInteractionBehavior_Chase)
+
+    if (!hasLoS)
     {
-        if (hit.GetComponent())
-        {
-            if ((hit.GetComponent()->GetCollisionObjectType() != COLLISION_PLAYER) ||
-                (hit.GetComponent()->GetCollisionObjectType() == COLLISION_PLAYER && !HasLoSOnHit(hit)))
-            {
-                bool canAgentInvestigate = character->m_currentTargetLkpInfo.GetLKPState() == TargetLKPInfo::ELKPState::LKPState_ValidByLOS;
-                if (canAgentInvestigate)
-                {
-                    // Set Lkp and investigation
-                    character->m_currentTargetLkpInfo.SetLKPState(TargetLKPInfo::ELKPState::LKPState_Valid);
-                    character->m_currentTargetLkpInfo.SetLastUpdatedTimeStamp(currentElapsedTime);
-                    return PlayerInteractionBehavior_InvestigateLKP;
-                }
-                else
-                {
-                    // Check if group knows where player might be
-                    bool targetFoundByGroup = false;
-                    TargetLKPInfo targetInfoFromGroup = AiAgentGroupManager::GetInstance()->GetLKPFromGroup(playerCharacter->GetActorLabel(), targetFoundByGroup);
-                    // Check if group knows where player might be  [Exer on LKP sharing week 11]
-                    if (targetFoundByGroup)
-                    {
-                        character->m_currentTargetLkpInfo = targetInfoFromGroup;
-                        return PlayerInteractionBehavior_InvestigateLKP;
-                    }
-                }
-            }
-            PlayerInteractionLoSUpdate();
-            character->m_currentTargetLkpInfo.SetLKPPos(playerCharacter->GetActorLocation());
-            character->m_currentTargetLkpInfo.SetLKPState(TargetLKPInfo::ELKPState::LKPState_ValidByLOS);
-            character->m_currentTargetLkpInfo.SetTargetLabel(playerCharacter->GetActorLabel());
-            character->m_currentTargetLkpInfo.SetLastUpdatedTimeStamp(currentElapsedTime);
-            return SDTUtils::IsPlayerPoweredUp(GetWorld()) ? PlayerInteractionBehavior_Flee : PlayerInteractionBehavior_Chase;
-        }
-        else
-        {
-            PlayerInteractionLoSUpdate();
-            character->m_currentTargetLkpInfo.SetLKPPos(playerCharacter->GetActorLocation());
-            character->m_currentTargetLkpInfo.SetLKPState(TargetLKPInfo::ELKPState::LKPState_ValidByLOS);
-            character->m_currentTargetLkpInfo.SetTargetLabel(playerCharacter->GetActorLabel());
-            character->m_currentTargetLkpInfo.SetLastUpdatedTimeStamp(currentElapsedTime);
-            return SDTUtils::IsPlayerPoweredUp(GetWorld()) ? PlayerInteractionBehavior_Flee : PlayerInteractionBehavior_Chase;
-        }
-        // return SDTUtils::IsPlayerPoweredUp(GetWorld()) ? PlayerInteractionBehavior_Flee : PlayerInteractionBehavior_Chase;
+        return PlayerInteractionBehavior_Collect;
     }
-    else if (playerInteractionBehavior == PlayerInteractionBehavior_InvestigateLKP)
-    {
 
-        bool targetFound = false;
-        character->m_currentTargetLkpInfo = AiAgentGroupManager::GetInstance()->GetLKPFromGroup(playerCharacter->GetActorLabel(), targetFound);
+    character->m_currentTargetLkpInfo.SetLKPPos(player->GetActorLocation());
+    character->m_currentTargetLkpInfo.SetLKPState(TargetLKPInfo::ELKPState::LKPState_ValidByLOS);
+    character->m_currentTargetLkpInfo.SetTargetLabel(player->GetActorLabel());
+    character->m_currentTargetLkpInfo.SetLastUpdatedTimeStamp(
+        UGameplayStatics::GetRealTimeSeconds(GetWorld())
+    );
 
-        TargetLKPInfo::ELKPState currentInvestigatedLKPState = character->m_currentTargetLkpInfo.GetLKPState();
-        currentInvestigatedLKPState = character->m_currentTargetLkpInfo.GetLKPState();
-
-        FVector lkpPos = character->m_currentTargetLkpInfo.GetLKPPos();
-
-        // TODO: make a service to show that
-        /* DrawDebugSphere(GetWorld(), lkpPos, 30.0f, 32, FColor::Purple);
-         DrawDebugSphere(GetWorld(), character->GetActorLocation() + FVector(0.f, 0.f, 100.f), 15.0f, 32, FColor::Purple);*/
-
-        if (lkpPos != FVector::ZeroVector)
-        {
-            // return PlayerInteractionBehavior_InvestigateLKP;
-        }
-
-        if ((character->GetActorLocation() - lkpPos).Size2D() < 50.f)
-        {
-            character->m_currentTargetLkpInfo.SetLKPState(TargetLKPInfo::ELKPState::LKPState_Invalid);
-            character->m_currentTargetLkpInfo.SetLastUpdatedTimeStamp(currentElapsedTime);
-            return PlayerInteractionBehavior_Collect;
-        }
-        else if (TargetLKPInfo::ELKPState::LKPState_Invalid == currentInvestigatedLKPState)
-        {
-            return PlayerInteractionBehavior_Collect;
-        }
-        else if (hit.GetComponent())
-        {
-            if (hit.GetComponent()->GetCollisionObjectType() == COLLISION_PLAYER && HasLoSOnHit(hit))
-            {
-                character->m_currentTargetLkpInfo.SetLKPPos(playerCharacter->GetActorLocation());
-                character->m_currentTargetLkpInfo.SetLKPState(TargetLKPInfo::ELKPState::LKPState_ValidByLOS);
-                character->m_currentTargetLkpInfo.SetTargetLabel(playerCharacter->GetActorLabel());
-                character->m_currentTargetLkpInfo.SetLastUpdatedTimeStamp(currentElapsedTime);
-                return SDTUtils::IsPlayerPoweredUp(GetWorld()) ? PlayerInteractionBehavior_Flee : PlayerInteractionBehavior_Chase;
-            }
-        }
-        else if (!lkpPos.Equals(FVector::ZeroVector, KINDA_SMALL_NUMBER))
-        {
-            return PlayerInteractionBehavior_InvestigateLKP;
-        }
-        return PlayerInteractionBehavior_InvestigateLKP;
-    }
-    else
-    {
-        PlayerInteractionLoSUpdate();
-
-        return SDTUtils::IsPlayerPoweredUp(GetWorld()) ? PlayerInteractionBehavior_Flee : PlayerInteractionBehavior_Chase;
-    }
+    return SDTUtils::IsPlayerPoweredUp(GetWorld())
+        ? PlayerInteractionBehavior_Flee
+        : PlayerInteractionBehavior_Chase;
 }
+
 
 void ASDTAIController::GetHightestPriorityDetectionHit(const TArray<FHitResult> &hits, FHitResult &outDetectionHit)
 {

@@ -74,9 +74,6 @@ protected:
     virtual void OnPossess(APawn *pawn);
     void UpdatePlayerInteractionBehavior(const FHitResult &detectionHit, float deltaTime);
     bool HasLoSOnHit(const FHitResult &hit);
-    void MoveToRandomCollectible();
-    void MoveToPlayer();
-    void MoveToBestFleeLocation();
     void PlayerInteractionLoSUpdate();
     void OnPlayerInteractionNoLosDone();
 
@@ -105,7 +102,6 @@ private:
     uint16 m_playerInteractionBehaviorKeyID;
     uint16 m_shouldExecuteServiceKeyID;
 
-    virtual void GoToBestTarget(float deltaTime) override;
     bool m_NeedsUpdateNextFrame = false;
 
 protected:
