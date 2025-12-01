@@ -1,0 +1,84 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#include "SoftDesignTrainingCharacter.h"
+#include "SoftDesignTraining.h"
+#include "SoftDesignTrainingMainCharacter.h"
+#include "SDTAIController.h"
+#include "SDTProjectile.h"
+#include "SDTUtils.h"
+#include "DrawDebugHelpers.h"
+#include "SDTCollectible.h"
+#include "AiAgentGroupManager.h"
+
+ASoftDesignTrainingCharacter::ASoftDesignTrainingCharacter()
+{
+    GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
+
+    ChaseGroupIndicator = CreateDefaultSubobject<USphereComponent>(TEXT("ChaseGroupIndicator"));
+    ChaseGroupIndicator->SetupAttachment(RootComponent);
+    ChaseGroupIndicator->SetRelativeLocation(FVector(0.f, 0.f, 120.f));
+    ChaseGroupIndicator->InitSphereRadius(10.f);
+    ChaseGroupIndicator->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    ChaseGroupIndicator->SetHiddenInGame(true);
+}
+
+void ASoftDesignTrainingCharacter::BeginPlay()
+{
+    Super::BeginPlay();
+
+    GetCapsuleComponent()->OnComponentBeginOverlap.AddDynamic(this, &ASoftDesignTrainingCharacter::OnBeginOverlap);
+    m_StartingPosition = GetActorLocation();
+
+    ASDTAIController *aiController = Cast<ASDTAIController>(GetController());
+    aiController->StartBehaviorTree(this);
+
+    AiAgentGroupManager *aiAgentGroupManager = AiAgentGroupManager::GetInstance();
+}
+
+void ASoftDesignTrainingCharacter::OnBeginOverlap(UPrimitiveComponent *OverlappedComponent, AActor *OtherActor, UPrimitiveComponent *OtherComponent, int32 OtherBodyIndex, bool bFromSweep, const FHitResult &SweepResult)
+{
+    if (OtherComponent->GetCollisionObjectType() == COLLISION_DEATH_OBJECT)
+    {
+        Die();
+    }
+    else if (ASDTCollectible *collectibleActor = Cast<ASDTCollectible>(OtherActor))
+    {
+        if (!collectibleActor->IsOnCooldown())
+        {
+            OnCollectPowerUp();
+        }
+
+        collectibleActor->Collect();
+    }
+    else if (ASoftDesignTrainingMainCharacter *mainCharacter = Cast<ASoftDesignTrainingMainCharacter>(OtherActor))
+    {
+        if (mainCharacter->IsPoweredUp())
+            Die();
+    }
+}
+
+void ASoftDesignTrainingCharacter::Die()
+{
+    SetActorLocation(m_StartingPosition);
+
+    if (ASDTAIController *controller = Cast<ASDTAIController>(GetController()))
+    {
+        controller->AIStateInterrupted();
+    }
+}
+
+void ASoftDesignTrainingCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    AiAgentGroupManager* aiAgentGroupManager = AiAgentGroupManager::GetInstance();
+    if (aiAgentGroupManager)
+    {
+        aiAgentGroupManager->UnregisterAIAgent(this);
+    }
+    Super::EndPlay(EndPlayReason);
+}
+
+void ASoftDesignTrainingCharacter::SetIsInChaseGroup(bool bInGroup)
+{
+    bIsInChaseGroup = bInGroup;
+    ChaseGroupIndicator->SetHiddenInGame(!bInGroup);
+}
